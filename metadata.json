@@ -1,0 +1,8 @@
+{
+  "name": "MonstahViral AI",
+  "description": "Transform long-form content into monstrously viral shorts using Gemini 3 and Veo AI. Automatic highlight detection, captioning, and platform-optimized export.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
