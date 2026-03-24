@@ -1,9 +1,10 @@
-// types.ts - COMPLETE VERSION
+// types.ts - COMPLETE 2026 VERSION
 export interface MonstahShot {
   id: string;
   timestamp: string;
   duration: string;
-  description: string;
+  trigger?: string;      // 3.0 AI Field
+  description?: string; // Legacy/Fallback
   score: number;
   tags: string[];
 }
@@ -19,7 +20,8 @@ export interface VideoClip {
     timestamp: string;
     startTime: number;
     duration: number;
-    description: string;
+    description?: string;
+    trigger?: string;
     score: number;
     tags: string[];
     originalVideo: string;
@@ -37,6 +39,7 @@ export interface VideoProject {
   title: string;
   originalVideoUrl: string;
   s3Url?: string;
+  thumbnailUrl?: string; // New Thumb Field
   status: 'idle' | 'analyzing' | 'ready' | 'generating' | 'complete';
   shots: MonstahShot[];
   clips?: VideoClip[];

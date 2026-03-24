@@ -120,9 +120,9 @@ export default function ShotCard({
           </div>
         </div>
 
-        {/* Description */}
-        <p className="text-gray-300 text-sm mb-3 line-clamp-3">
-          {shot.description}
+        {/* Trigger */}
+        <p className="text-gray-300 text-sm mb-3 line-clamp-3 italic">
+          "{shot.trigger || shot.description}"
         </p>
 
         {/* Hashtags */}

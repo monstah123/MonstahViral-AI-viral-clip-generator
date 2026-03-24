@@ -19,24 +19,24 @@ The attention economy is more competitive than ever. Use your advanced predictiv
 For a video of this length, extract 6 to 12 banger clips.
 
 2026 VIRAL CRITERIA:
-1. **MICRO-HOOK CHAINS**: Don't just find one hook—find segments with at least 3 distinct "micro-hooks" in the first 5 seconds (rapid visual/audio changes).
-2. **META-ATTENTION TRIGGERS**: Look for moments where the creator breaks the 4th wall or uses "pattern-fractals" (unexpected shifts in tone or perspective).
-3. **PEAK DOPAMINE SPIKES**: Identify the exact frames of the highest visual or emotional intensity.
-4. **LOOP POTENTIAL**: Find clips that end on a "curiosity cliffhanger" or naturally loop back to the start.
+1. **MULTI-MODAL MICRO-HOOKS**: Identify segments with 4+ distinct "micro-hooks" in the first 6 seconds (vocal spike, unexpected frame-move, color-pop, perspective-shift).
+2. **EYE-TRACKING TRANSITIONS**: Find moments where the focal point is naturally leading the viewer's eye into the next segment.
+3. **PEAK DOPAMINE SPIKES (SYNCED)**: Only clips where the audio and visual energy peaks occur within 0.5s of each other.
+4. **PSYCHOLOGICAL LOOP-BACK**: Identify clips with a perfect "re-watch" trigger (ending on a question that is answered at the beginning).
 
 FOR EACH CLIP, PROVIDE:
 - **Timestamp**: Exact start (MM:SS)
-- **Duration**: (6s to 18s) - Shorter is often better in 2026.
-- **Description**: Explain the "Psychological Trigger" used in this clip.
-- **Viral Score**: 0-100 (Be brutal: 90+ means it has 10M+ potential).
-- **Hashtags**: Deep-meta trending tags.
+- **Duration**: (6s to 18s) - Very short for maximum rewatch.
+- **Trigger**: Explain the "Neurological Trigger" (e.g., "Mirror-neuron activation via extreme reaction").
+- **Viral Score**: 0-100 (Be brutal: 95+ is a global phenomenon).
+- **Hashtags**: Deep-meta 2026 trending tags.
 
 Return ONLY a JSON array of objects with this structure:
 [
   {
     "timestamp": "02:15",
     "duration": "10s",
-    "description": "Utilizes a triple micro-hook chain (visual pop, sound shift, facial reaction) leading to a loopable payoff...",
+    "trigger": "...",
     "score": 96,
     "tags": ["#trending2026", "#meta", "..."]
   }

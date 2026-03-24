@@ -7,7 +7,8 @@ import ShotCard from './components/ShotCard';
 import LandingPage from './components/LandingPage';
 import { uploadToS3, listItemsFromS3, deleteFromS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
-import { Sparkles, History, Trash2, ExternalLink, ArrowLeft } from 'lucide-react';
+import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Camera } from 'lucide-react';
+import { captureThumbnail } from './utils/thumbnailUtils';
 
 const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
@@ -22,6 +23,8 @@ const App: React.FC = () => {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Load history on mount
@@ -35,11 +38,28 @@ const App: React.FC = () => {
     setIsLoadingHistory(true);
     try {
       const items = await listItemsFromS3('projects/');
-      // Map and sort by last modified
       const sorted = items
         .filter(item => item.Key?.endsWith('.json'))
         .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0));
-      setRecentProjects(sorted);
+      
+      // Fetch the actual JSON content for the first 10 projects to get thumbnails/titles
+      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
+      const region = import.meta.env.VITE_AWS_REGION;
+      
+      const detailedProjects = await Promise.all(
+        sorted.slice(0, 12).map(async (item) => {
+          try {
+            const url = `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            return { ...data, s3Key: item.Key, lastModified: item.LastModified };
+          } catch (e) {
+            return { title: item.Key?.split('/').pop(), s3Key: item.Key, lastModified: item.LastModified };
+          }
+        })
+      );
+      
+      setRecentProjects(detailedProjects);
     } catch (err) {
       console.error('Failed to load history:', err);
     } finally {
@@ -91,6 +111,16 @@ const App: React.FC = () => {
     try {
       const awsUrl = await uploadVideoToAWS(file);
       
+      // 📸 CAPTURE THUMBNAIL
+      let thumbUrl = '';
+      try {
+        const thumbBlob = await captureThumbnail(file, 2);
+        const thumbPath = `thumbnails/${Date.now()}_thumb.jpg`;
+        thumbUrl = await uploadToS3(thumbPath, thumbBlob, 'image/jpeg');
+      } catch (e) {
+        console.warn('Thumbnail capture failed, skipping...', e);
+      }
+      
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -109,6 +139,7 @@ const App: React.FC = () => {
         title: file.name,
         originalVideoUrl: videoUrl,
         s3Url: awsUrl,
+        thumbnailUrl: thumbUrl,
         status: 'ready',
         shots,
         clips: []
@@ -132,6 +163,29 @@ const App: React.FC = () => {
       alert(error.message || 'Unknown error');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleRenameProject = async (s3Key: string, newTitle: string) => {
+    try {
+      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
+      const region = import.meta.env.VITE_AWS_REGION;
+      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
+      
+      const res = await fetch(url);
+      const proj = await res.json();
+      
+      const updatedProj = { ...proj, title: newTitle };
+      await uploadToS3(s3Key, JSON.stringify(updatedProj, null, 2), 'application/json');
+      
+      setEditingProjectId(null);
+      loadHistory();
+      
+      if (project?.id === proj.id) {
+        setProject({ ...project, title: newTitle });
+      }
+    } catch (err) {
+      console.error('Rename failed:', err);
     }
   };
 
@@ -465,44 +519,85 @@ Export Time: ${new Date().toLocaleString()}
                       <div className="h-px flex-grow bg-gradient-to-r from-zinc-800 to-transparent ml-4"></div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2">
                       {recentProjects.map((item: any) => {
-                        const key = item.Key;
-                        const cleanName = key.split('/').pop().replace('.json', '');
-                        const timestampMatch = cleanName.match(/^\d+/);
-                        const fileName = cleanName.replace(/^\d+_/, '').replace(/_/g, ' ');
-                        const date = new Date(item.LastModified).toLocaleDateString();
+                        const s3Key = item.s3Key;
+                        const date = new Date(item.lastModified || Date.now()).toLocaleDateString();
+                        const isEditing = editingProjectId === item.id;
                         
                         return (
                           <div 
-                            key={key}
-                            className="group relative bg-zinc-900/40 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 transition-all hover:scale-[1.02] hover:bg-zinc-900/60 shadow-xl"
+                            key={s3Key}
+                            className="group relative bg-zinc-900/60 border border-zinc-800 hover:border-blue-500/40 rounded-2xl overflow-hidden transition-all hover:scale-[1.03] shadow-2xl"
                           >
-                            <div className="flex items-start justify-between gap-4">
-                              <div 
-                                className="flex-grow cursor-pointer"
-                                onClick={() => loadProjectFromS3(key)}
-                              >
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[10px] font-mono font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">{date}</span>
+                            {/* THUMBNAIL PREVIEW */}
+                            <div 
+                              className="aspect-video w-full bg-zinc-800 relative overflow-hidden cursor-pointer"
+                              onClick={() => loadProjectFromS3(s3Key)}
+                            >
+                              {item.thumbnailUrl ? (
+                                <img src={item.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Preview"/>
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-zinc-900">
+                                  <Camera className="w-8 h-8 text-zinc-800" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1 uppercase tracking-tight">
-                                  {fileName}
-                                </h3>
-                                <div className="flex items-center gap-4 mt-3">
-                                   <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold group-hover:text-white transition-colors">
-                                     <ExternalLink className="w-3.5 h-3.5" />
-                                     LOAD VENTURE
-                                   </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                              <div className="absolute bottom-3 left-3 flex items-center gap-1.5">
+                                 <span className="text-[9px] font-black text-white bg-blue-600 px-2 py-0.5 rounded uppercase tracking-tighter">PROJECT</span>
+                              </div>
+                            </div>
+
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-grow min-w-0">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-2">
+                                      <input 
+                                        autoFocus
+                                        value={editingTitle}
+                                        onChange={(e) => setEditingTitle(e.target.value)}
+                                        className="bg-black border border-blue-500 text-white p-1 rounded w-full text-sm font-bold"
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleRenameProject(s3Key, editingTitle);
+                                          if (e.key === 'Escape') setEditingProjectId(null);
+                                        }}
+                                      />
+                                      <button onClick={() => handleRenameProject(s3Key, editingTitle)} className="p-1 text-green-500"><Check className="w-4 h-4" /></button>
+                                      <button onClick={() => setEditingProjectId(null)} className="p-1 text-red-500"><X className="w-4 h-4" /></button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="flex items-center gap-2 group/title">
+                                        <h3 className="text-sm font-black text-white truncate uppercase tracking-tight">
+                                          {item.title}
+                                        </h3>
+                                        <button 
+                                          onClick={() => { setEditingProjectId(item.id); setEditingTitle(item.title); }}
+                                          className="opacity-0 group-hover/title:opacity-100 p-1 text-zinc-500 hover:text-white transition-opacity"
+                                        >
+                                          <Edit3 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                      <p className="text-[10px] text-zinc-500 font-mono mt-1">{date} • {item.shots?.length || 0} SHOTS</p>
+                                    </>
+                                  )}
                                 </div>
+                                
+                                <button 
+                                  onClick={(e) => handleDeleteProject(s3Key, e)}
+                                  className="p-2 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex-shrink-0"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                               
                               <button 
-                                onClick={(e) => handleDeleteProject(key, e)}
-                                className="p-2.5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
-                                title="Delete from AWS"
+                                onClick={() => loadProjectFromS3(s3Key)}
+                                className="w-full mt-4 py-2 bg-zinc-800 hover:bg-blue-600 text-[10px] font-black text-zinc-400 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 tracking-widest uppercase"
                               >
-                                <Trash2 className="w-5 h-5" />
+                                <ExternalLink className="w-3 h-3" />
+                                OPEN PROJECT
                               </button>
                             </div>
                           </div>
@@ -592,8 +687,8 @@ Export Time: ${new Date().toLocaleString()}
                       <div className="font-bold">{selectedShot.duration}</div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-400">Description</div>
-                      <p className="text-gray-300">{selectedShot.description}</p>
+                      <div className="text-sm font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded inline-block mb-2">Neurological Trigger</div>
+                      <p className="text-gray-300 italic">"{selectedShot.trigger || selectedShot.description}"</p>
                     </div>
                     <div>
                       <div className="text-sm text-gray-400">Trending Hashtags</div>
