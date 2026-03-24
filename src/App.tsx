@@ -290,13 +290,13 @@ Export Time: ${new Date().toLocaleString()}
             
             {/* 🌈 CYBERPUNK HEADLINE */}
             {!isProcessing && (
-              <div className="text-center mb-8">
-                <h1 className="text-7xl font-black tracking-tight mb-4 cyber-headline">
+              <div className="text-center mb-8 px-2">
+                <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight mb-4 cyber-headline">
                   <span className="text-purple-500">FEED</span>{' '}
                   <span className="text-blue-500">THE</span>{' '}
                   <span className="text-orange-500">MONSTAH</span>
                 </h1>
-                <p className="text-gray-400 text-lg">
+                <p className="text-gray-400 text-base sm:text-lg">
                   Drop your video and let AI find your next viral hit
                 </p>
               </div>
@@ -447,8 +447,8 @@ Export Time: ${new Date().toLocaleString()}
         )}
       </main>
       {project && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-black/80 backdrop-blur-md border-t border-zinc-800 z-50">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="fixed bottom-0 left-0 right-0 p-3 sm:p-4 bg-black/80 backdrop-blur-md border-t border-zinc-800 z-50">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
             <div className="hidden md:block">
               <p className="text-sm text-zinc-400">
                 Project: <span className="text-white font-bold">{project?.title}</span>
@@ -456,10 +456,10 @@ Export Time: ${new Date().toLocaleString()}
                 {generatedClips?.length > 0 && <span className="ml-4">Clips: <span className="text-purple-400">{generatedClips.length}</span></span>}
               </p>
             </div>
-            <div className="flex gap-4">
-              <button onClick={() => { if (selectedShot) seekToTimestamp(selectedShot.timestamp); else alert("Select a shot first!"); }} className="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-sm font-bold transition-all">Jump to Shot</button>
-              <button onClick={handleExport} className="px-6 py-2 bg-green-500 hover:bg-green-400 text-black rounded-full text-sm font-bold transition-all">Export Details</button>
-              <button onClick={handleCreateClip} disabled={isClipping || !selectedShot} className={`px-6 py-2 rounded-full text-sm font-bold ${isClipping || !selectedShot ? 'bg-purple-800' : 'bg-purple-500 hover:bg-purple-400'} text-white`}>{isClipping ? 'Creating...' : 'Create Clip'}</button>
+            <div className="flex gap-2 sm:gap-4 w-full sm:w-auto justify-center">
+              <button onClick={() => { if (selectedShot) seekToTimestamp(selectedShot.timestamp); else alert("Select a shot first!"); }} className="px-3 py-2 sm:px-6 sm:py-2 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs sm:text-sm font-bold transition-all">Jump to Shot</button>
+              <button onClick={handleExport} className="px-3 py-2 sm:px-6 sm:py-2 bg-green-500 hover:bg-green-400 text-black rounded-full text-xs sm:text-sm font-bold transition-all">Export Details</button>
+              <button onClick={handleCreateClip} disabled={isClipping || !selectedShot} className={`px-3 py-2 sm:px-6 sm:py-2 rounded-full text-xs sm:text-sm font-bold ${isClipping || !selectedShot ? 'bg-purple-800' : 'bg-purple-500 hover:bg-purple-400'} text-white`}>{isClipping ? 'Creating...' : 'Create Clip'}</button>
             </div>
           </div>
         </div>

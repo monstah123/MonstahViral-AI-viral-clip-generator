@@ -155,39 +155,39 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-orange-600/10 rounded-full blur-[150px] pointer-events-none" />
 
         {/* Badge */}
-        <div className="relative z-10 flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-sm text-gray-400 mb-8 font-mono">
-          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block"></span>
+        <div className="relative z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-xs sm:text-sm text-gray-400 mb-8 font-mono text-center">
+          <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block flex-shrink-0"></span>
           Powered by Google Gemini AI · AWS S3
         </div>
 
         {/* Main Headline */}
-        <div className="relative z-10 text-center max-w-5xl">
-          <h1 className="text-7xl md:text-9xl font-black tracking-tighter leading-none mb-6">
+        <div className="relative z-10 text-center max-w-5xl px-4">
+          <h1 className="text-5xl sm:text-7xl md:text-9xl font-black tracking-tighter leading-none mb-6">
             <span className="block text-white">FEED THE</span>
             <span className="block bg-gradient-to-r from-purple-500 via-blue-400 to-orange-500 bg-clip-text text-transparent animate-gradient-x">
               MONSTAH
             </span>
           </h1>
-          <p className="text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto mb-12 leading-relaxed">
+          <p className="text-lg sm:text-xl md:text-2xl text-gray-400 max-w-2xl mx-auto mb-10 sm:mb-12 leading-relaxed">
             Drop your raw footage. Let <span className="text-orange-400 font-bold">AI</span> hunt down your most viral moments and export them as ready-to-post clips. <span className="text-white font-semibold">In minutes.</span>
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
             <button
               onClick={onStart}
-              className="group relative px-10 py-5 text-xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-purple-500/30"
+              className="group relative w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-purple-500/30"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-500 to-orange-500"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-blue-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <span className="relative z-10 flex items-center gap-3">
+              <span className="relative z-10 flex items-center justify-center gap-3">
                 🎬 START FOR FREE
                 <span className="group-hover:translate-x-1 transition-transform inline-block">→</span>
               </span>
             </button>
             <button
               onClick={onStart}
-              className="px-10 py-5 text-xl font-bold rounded-2xl border border-white/20 hover:border-white/40 hover:bg-white/5 transition-all duration-300"
+              className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-bold rounded-2xl border border-white/20 hover:border-white/40 hover:bg-white/5 transition-all duration-300"
             >
               Watch Demo
             </button>
@@ -204,12 +204,12 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
       </section>
 
       {/* ─── HOW IT WORKS ─── */}
-      <section className="py-32 px-4 max-w-6xl mx-auto">
-        <div className="text-center mb-20">
+      <section className="py-20 sm:py-32 px-4 max-w-6xl mx-auto">
+        <div className="text-center mb-12 sm:mb-20">
           <p className="text-purple-400 font-mono text-sm tracking-widest mb-3">THE PROCESS</p>
-          <h2 className="text-5xl font-black">From Upload to Viral in <span className="text-orange-500">4 Steps</span></h2>
+          <h2 className="text-3xl sm:text-5xl font-black">From Upload to Viral in <span className="text-orange-500">4 Steps</span></h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 relative">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-0 relative">
           {/* Connector Line */}
           <div className="hidden md:block absolute top-[2.75rem] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-purple-500 via-blue-500 to-orange-500 opacity-40"></div>
 
@@ -226,15 +226,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
       </section>
 
       {/* ─── FEATURES ─── */}
-      <section className="py-32 px-4 relative overflow-hidden">
+      <section className="py-20 sm:py-32 px-4 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-zinc-950/80 to-transparent pointer-events-none"></div>
         <div className="max-w-6xl mx-auto relative z-10">
-          <div className="text-center mb-20">
+          <div className="text-center mb-12 sm:mb-20">
             <p className="text-blue-400 font-mono text-sm tracking-widest mb-3">FEATURES</p>
-            <h2 className="text-5xl font-black">Built to <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Go Viral</span></h2>
-            <p className="text-gray-500 mt-4 text-lg max-w-xl mx-auto">Every feature is engineered to take your content from raw footage to viral clip as fast as humanly possible.</p>
+            <h2 className="text-3xl sm:text-5xl font-black">Built to <span className="bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Go Viral</span></h2>
+            <p className="text-gray-500 mt-4 text-base sm:text-lg max-w-xl mx-auto">Every feature is engineered to take your content from raw footage to viral clip as fast as humanly possible.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {features.map((feat, i) => (
               <div
                 key={i}
@@ -250,17 +250,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
       </section>
 
       {/* ─── FINAL CTA ─── */}
-      <section className="py-40 px-4 text-center relative overflow-hidden">
+      <section className="py-24 sm:py-40 px-4 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-purple-950/20 via-transparent to-transparent pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl mx-auto">
-          <p className="text-6xl mb-6">👹</p>
-          <h2 className="text-6xl md:text-7xl font-black mb-6 leading-tight">
+          <p className="text-5xl sm:text-6xl mb-6">👹</p>
+          <h2 className="text-4xl sm:text-6xl md:text-7xl font-black mb-6 leading-tight">
             The Monstah is <span className="bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Hungry.</span>
           </h2>
-          <p className="text-xl text-gray-400 mb-12">Drop your video. Let it feed. Watch your clips go viral.</p>
+          <p className="text-lg sm:text-xl text-gray-400 mb-10 sm:mb-12">Drop your video. Let it feed. Watch your clips go viral.</p>
           <button
             onClick={onStart}
-            className="group relative px-14 py-6 text-2xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-orange-500/30 mx-auto"
+            className="group relative w-full sm:w-auto px-10 sm:px-14 py-5 sm:py-6 text-xl sm:text-2xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-orange-500/30"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
