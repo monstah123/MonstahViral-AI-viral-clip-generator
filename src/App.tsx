@@ -273,6 +273,17 @@ Export Time: ${new Date().toLocaleString()}
   return (
     <div className="min-h-screen bg-black pb-20">
       <Header />
+
+      {/* 🫧 Back to Landing Bubble */}
+      <button
+        onClick={() => setShowLanding(true)}
+        title="Back to Home"
+        className="fixed top-4 right-4 z-50 group flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 hover:border-purple-500/60 hover:bg-zinc-800 transition-all duration-300 shadow-xl hover:shadow-purple-500/20 hover:scale-105 active:scale-95"
+      >
+        <span className="text-xl">👹</span>
+        <span className="text-sm font-bold text-gray-400 group-hover:text-white transition-colors hidden sm:inline">Home</span>
+      </button>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!project ? (
           <div className="flex flex-col items-center justify-center space-y-8 py-12">
