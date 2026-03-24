@@ -152,9 +152,13 @@ const App: React.FC = () => {
       
       setUploadedVideoUrl(awsUrl);
       
-    } catch (error: any) {
-      console.error("❌ Upload/Analysis failed:", error);
-      alert(error.message || 'Unknown error');
+    } catch (err: any) {
+      console.error('Upload/Analysis error:', err);
+      if (err.message.includes('fetch')) {
+        alert('👹 MONSTAH ERROR: AWS Upload Failed!\n\nThis is usually because your S3 CORS is missing the "PUT" method. Check your S3 settings!');
+      } else {
+        alert(`❌ Error: ${err.message}`);
+      }
     } finally {
       setIsProcessing(false);
     }

@@ -5,8 +5,8 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 
 export const analyzeVideoForShots = async (base64Video: string, mimeType: string): Promise<MonstahShot[]> => {
   if (!GEMINI_API_KEY) {
-    console.warn('⚠️ No Gemini API key found. Using mock data.');
-    return generateMockShots();
+    console.error('❌ CRITICAL: VITE_GOOGLE_API_KEY is missing!');
+    throw new Error('AI Architects are offline! Please check your VITE_GOOGLE_API_KEY in .env.local');
   }
 
   try {
