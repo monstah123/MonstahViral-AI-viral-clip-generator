@@ -95,16 +95,13 @@ async function loadFFmpeg(onProgress?: (msg: string) => void): Promise<FFmpeg> {
 function buildVideoFilter(format: ClipFormat): string | null {
   switch (format) {
     case 'vertical_crop':
-      // Crop the center column to 9:16, then scale to 1080×1920
       return 'crop=ih*9/16:ih:(iw-ih*9/16)/2:0,scale=1080:1920';
     case 'vertical_pad':
-      // Fit inside 1080×1920, pad remaining space with black
       return 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black';
     case 'square':
-      // Crop largest possible center square, scale to 1080×1080
       return 'crop=min(iw\\,ih):min(iw\\,ih):(iw-min(iw\\,ih))/2:(ih-min(iw\\,ih))/2,scale=1080:1080';
     default:
-      return null; // stream copy — no re-encode needed
+      return null;
   }
 }
 
@@ -118,7 +115,6 @@ export async function createMP4Clip(
 ): Promise<Blob> {
   const ff = await loadFFmpeg(onProgress);
   const duration = endTime - startTime;
-  console.log(`🎬 Creating clip ${startTime}s–${endTime}s (${duration}s) | format: ${format}`);
 
   onProgress?.('Reading video file...');
   const ext = videoFile.name.split('.').pop()?.toLowerCase() || 'mp4';
@@ -126,47 +122,34 @@ export async function createMP4Clip(
   await ff.writeFile(inputName, await fetchFile(videoFile));
 
   const vf = buildVideoFilter(format);
-  const reEncode = vf !== null;
-
-  const label = format === 'original' ? 'Cutting video...' : `Converting to ${CLIP_FORMATS.find(f => f.id === format)?.label}...`;
-  onProgress?.(label);
+  onProgress?.(format === 'original' ? 'Processing video...' : `Converting to ${CLIP_FORMATS.find(f => f.id === format)?.label}...`);
 
   const cleanup = async () => {
-    try { await ff!.deleteFile(inputName); } catch { /* ignore */ }
-    try { await ff!.deleteFile('output.mp4'); } catch { /* ignore */ }
+    try { await ff!.deleteFile(inputName); } catch {}
+    try { await ff!.deleteFile('output.mp4'); } catch {}
   };
 
-  const buildArgs = (withVf: boolean) =>
-    reEncode || withVf
-      ? [
-          '-ss', startTime.toString(),
-          '-i', inputName,
-          '-t', duration.toString(),
-          ...(vf ? ['-vf', vf] : []),
-          '-c:v', 'libx264',
-          '-preset', 'ultrafast',
-          '-crf', '23',
-          '-c:a', 'aac',
-          '-movflags', '+faststart',
-          'output.mp4',
-        ]
-      : [
-          '-ss', startTime.toString(),
-          '-i', inputName,
-          '-t', duration.toString(),
-          '-c', 'copy',
-          '-avoid_negative_ts', '1',
-          '-movflags', '+faststart',
-          'output.mp4',
-        ];
-
   try {
-    await ff.exec(buildArgs(true));
+    // ─── THE "UNIVERSAL COMPATIBILITY" COMMAND ───
+    const args = [
+      '-i', inputName,
+      '-ss', startTime.toString(),
+      '-t', duration.toString(),
+      ...(vf ? ['-vf', vf] : []),
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '22',
+      '-pix_fmt', 'yuv420p', // Standard pixel format for all players (CRITICAL FOR WINDOWS)
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      'output.mp4'
+    ];
+    await ff.exec(args);
   } catch (err: any) {
-    console.warn('Primary encode failed, retrying without vf…', err);
-    onProgress?.('Retrying with fallback encoding...');
-    try { await ff.deleteFile('output.mp4'); } catch { /* ignore */ }
-    await ff.exec(buildArgs(false));
+    console.error('FFmpeg error:', err);
+    await cleanup();
+    throw new Error('Failed to create a compatible clip.');
   }
 
   onProgress?.('Finalizing...');
@@ -174,7 +157,6 @@ export async function createMP4Clip(
   await cleanup();
 
   const blob = new Blob([new Uint8Array(data.buffer as ArrayBuffer)], { type: 'video/mp4' });
-  console.log(`✅ Clip ready (${format}): ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
   onProgress?.('Done!');
   return blob;
 }
