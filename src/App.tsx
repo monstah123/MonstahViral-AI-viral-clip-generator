@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [generatedClips, setGeneratedClips] = useState<VideoClip[]>([]);
   const [isClipping, setIsClipping] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);

@@ -15,6 +15,7 @@
     "@ffmpeg/util": "^0.12.1",
     "@google/genai": "^1.35.0",
     "@supabase/supabase-js": "^2.90.1",
+    "buffer": "^6.0.3",
     "framer-motion": "^12.27.0",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
