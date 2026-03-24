@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { Upload, FileVideo, Plus } from 'lucide-react';
 
 interface VideoUploaderProps {
   onUpload: (file: File) => void;
@@ -40,10 +41,21 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
   if (isLoading) {
     return (
       <div className="w-full max-w-2xl mx-auto">
-        <div className="border-2 border-dashed border-white rounded-lg p-20 text-center">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white"></div>
-            <p className="text-xl">Processing your video...</p>
+        <div className="bg-zinc-900/40 border-2 border-dashed border-zinc-800 rounded-3xl p-24 text-center backdrop-blur-xl relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-orange-500/10 animate-pulse"></div>
+          <div className="flex flex-col items-center gap-6 relative z-10">
+            <div className="relative">
+              <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-20 animate-pulse"></div>
+              <div className="animate-spin rounded-full h-20 w-20 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-2xl font-bold bg-gradient-to-r from-purple-400 via-blue-400 to-orange-400 bg-clip-text text-transparent">
+                FEEDING THE MONSTAH...
+              </p>
+              <p className="text-gray-500 font-mono text-sm tracking-widest animate-pulse">
+                UPLOADING TO S3 & ANALYZING
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -51,53 +63,88 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
+    <div className="w-full max-w-3xl mx-auto">
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        className={`
-          border-2 border-dashed border-white rounded-lg p-16 text-center
-          transition-all duration-300 cursor-pointer
-          ${isDragging ? 'bg-white/5 border-blue-400' : 'hover:bg-white/5'}
-        `}
         onClick={() => !isDragging && handleBrowseClick()}
+        className={`
+          relative group cursor-pointer transition-all duration-500
+          rounded-[2rem] border-2 border-dashed overflow-hidden
+          ${isDragging 
+            ? 'bg-blue-500/10 border-blue-400 shadow-[0_0_50px_rgba(59,130,246,0.3)]' 
+            : 'bg-zinc-900/40 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 shadow-2xl'}
+        `}
       >
-        <div className="flex flex-col items-center gap-6">
-          {/* Plus Icon */}
-          <div className="text-white">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </div>
-          
-          {/* Text */}
-          <div>
-            <h3 className="text-2xl font-bold mb-2">Drop your video here</h3>
-            <p className="text-gray-400">Let the Monstah find your next hit</p>
-          </div>
-
-          {/* Browse Button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleBrowseClick();
-            }}
-            className="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded text-sm font-bold uppercase tracking-wider transition-colors"
-          >
-            Browse Files
-          </button>
-          
-          {/* Hidden File Input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="video/*,.mp4,.mov,.avi,.mkv"
-            onChange={handleFileChange}
-          />
+        {/* Animated Background Gradients */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+           <div className="absolute top-0 -left-1/4 w-1/2 h-full bg-purple-500/10 blur-[100px] animate-pulse"></div>
+           <div className="absolute bottom-0 -right-1/4 w-1/2 h-full bg-orange-500/10 blur-[100px] animate-pulse delay-700"></div>
         </div>
+
+        <div className="p-16 md:p-24 relative z-10">
+          <div className="flex flex-col items-center gap-8">
+            
+            {/* Main Icon Area */}
+            <div className="relative">
+              <div className={`
+                w-24 h-24 rounded-2xl flex items-center justify-center transition-all duration-500
+                ${isDragging ? 'bg-blue-500 scale-110 rotate-12' : 'bg-zinc-800 group-hover:bg-zinc-700'}
+              `}>
+                {isDragging ? (
+                  <Upload className="w-12 h-12 text-white animate-bounce" />
+                ) : (
+                  <FileVideo className="w-12 h-12 text-blue-400 group-hover:text-blue-300" />
+                )}
+              </div>
+              
+              {/* Floating Plus */}
+              <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                <Plus className="w-6 h-6 text-white" />
+              </div>
+            </div>
+
+            {/* Text & Headlines */}
+            <div className="text-center space-y-3">
+              <h3 className="text-4xl font-black tracking-tight text-white">
+                {isDragging ? 'DROP IT HERE!' : 'DRAG YOUR VIDEO'}
+              </h3>
+              <p className="text-gray-400 text-lg max-w-sm mx-auto">
+                Upload up to 50MB and let the <span className="text-orange-500 font-bold italic">Monstah</span> find your next viral hit
+              </p>
+            </div>
+
+            {/* Browse Button - Cyberpunk Style */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleBrowseClick();
+              }}
+              className="relative px-10 py-4 font-bold text-white group/btn overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-600 to-blue-500 rounded-full"></div>
+              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+              <span className="relative z-10 flex items-center gap-2">
+                BROWSE FILES
+              </span>
+            </button>
+
+            {/* Formats info */}
+            <p className="text-zinc-600 text-sm font-mono tracking-widest flex items-center gap-2 uppercase">
+              MP4 • MOV • AVI • 50MB MAX
+            </p>
+          </div>
+        </div>
+
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="video/*,.mp4,.mov,.avi,.mkv"
+          onChange={handleFileChange}
+        />
       </div>
     </div>
   );

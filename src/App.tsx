@@ -135,31 +135,6 @@ Export Time: ${new Date().toLocaleString()}
     URL.revokeObjectURL(url);
   };
 
-  const handleTestUpload = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'video/*';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const maxSize = 50 * 1024 * 1024;
-      if (file.size > maxSize) {
-        alert(`File too large! Max 50MB. Your file: ${(file.size / (1024 * 1024)).toFixed(2)}MB`);
-        return;
-      }
-      setIsProcessing(true);
-      try {
-        const url = await uploadVideoToAWS(file);
-        alert(`✅ Upload successful!\n\nURL: ${url}`);
-        setUploadedVideoUrl(url);
-      } catch (error: any) {
-        alert(`❌ Upload failed: ${error.message}`);
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-    input.click();
-  };
 
   const uploadVideoToAWS = async (file: File): Promise<string> => {
     const timestamp = Date.now();
@@ -249,39 +224,7 @@ Export Time: ${new Date().toLocaleString()}
     await clipAndUploadShot(selectedShot);
   };
 
-  const testMp4Upload = async () => {
-    try {
-      const mockContent = 'Mock video content for testing';
-      const testBlob = new Blob([mockContent], { type: 'video/mp4' });
-      const testFile = new File([testBlob], `test_${Date.now()}.mp4`, { type: 'video/mp4' });
-      
-      const filePath = `test/test_${Date.now()}.mp4`;
-      await uploadToS3(filePath, testFile, 'video/mp4');
-      
-      alert('✅ Test passed! Your AWS bucket accepts video files.');
-      return true;
-      
-    } catch (error: any) {
-      alert(`Test error: ${error.message}`);
-      return false;
-    }
-  };
 
-  const handleTestClips = async () => {
-    if (!project?.s3Url) {
-      alert('No project loaded');
-      return;
-    }
-    
-    const videoOk = await testOriginalVideo(project.s3Url);
-    const clips = await listClips();
-    
-    if (clips.length === 0) {
-      alert('No clips found. Create some clips first!');
-    } else {
-      alert(`Found ${clips.length} clips. Check console (F12) for details.`);
-    }
-  };
 
   const clearProject = () => {
     if (project?.originalVideoUrl) URL.revokeObjectURL(project.originalVideoUrl);
@@ -309,13 +252,11 @@ Export Time: ${new Date().toLocaleString()}
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-2">MONSTAHVIRAL</h1>
           <p className="text-gray-400 mb-8">AI-Powered Viral Shorts Generator</p>
-          <div className="bg-zinc-900/50 p-8 rounded-2xl border border-zinc-800">
-            <h2 className="text-2xl font-bold mb-4">API Key Required</h2>
-            <p className="text-gray-300 mb-6">Add your Google Gemini API key to `.env.local`</p>
+          <div className="bg-zinc-900/50 p-8 rounded-2xl border border-zinc-800 backdrop-blur-xl">
+            <h2 className="text-2xl font-bold mb-4 text-green-400">API Key Required</h2>
+            <p className="text-gray-300 mb-6">Add your Google Gemini API key to `.env.local` to start generating viral shots.</p>
             <div className="flex gap-4">
-              <button onClick={() => setHasApiKey(true)} className="px-6 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-lg">Continue Anyway</button>
-              <button onClick={handleTestUpload} className="px-6 py-3 bg-blue-500 hover:bg-blue-400 text-white font-bold rounded-lg">Test Video Upload</button>
-              <button onClick={testMp4Upload} className="px-6 py-3 bg-purple-500 hover:bg-purple-400 text-white font-bold rounded-lg">Test MP4 Upload</button>
+              <button onClick={() => setHasApiKey(true)} className="px-8 py-3 bg-green-500 hover:bg-green-400 text-black font-bold rounded-full transition-all hover:scale-105">Continue Anyway</button>
             </div>
           </div>
         </div>
@@ -382,29 +323,9 @@ Export Time: ${new Date().toLocaleString()}
             ) : (
               /* UPLOAD AREA */
               <>
+              <div className="w-full">
                 <VideoUploader onUpload={handleFileUpload} isLoading={isProcessing} />
-
-                {/* Test Buttons */}
-                <div className="mt-8 flex gap-3 justify-center flex-wrap">
-                  <button 
-                    onClick={handleTestUpload} 
-                    className="px-6 py-3 bg-blue-500 hover:bg-blue-400 text-white rounded-lg font-bold transition-colors"
-                  >
-                    Test Video Upload
-                  </button>
-                  <button 
-                    onClick={testMp4Upload} 
-                    className="px-6 py-3 bg-purple-500 hover:bg-purple-400 text-white rounded-lg font-bold transition-colors"
-                  >
-                    Test MP4 Upload
-                  </button>
-                  <button 
-                    onClick={handleTestClips} 
-                    className="px-6 py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-bold transition-colors"
-                  >
-                    ✂️ Test Clips
-                  </button>
-                </div>
+              </div>
               </>
             )}
           </div>
