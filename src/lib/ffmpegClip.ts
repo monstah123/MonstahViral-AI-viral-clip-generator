@@ -2,7 +2,14 @@ import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 // ─── Format Types ─────────────────────────────────────────────────────────────
-export type ClipFormat = 'original' | 'vertical_crop' | 'vertical_pad' | 'square';
+export type ClipFormat = 
+  | 'original' 
+  | 'vertical_crop' 
+  | 'vertical_crop_left' 
+  | 'vertical_crop_right' 
+  | 'vertical_blur' 
+  | 'vertical_pad' 
+  | 'square';
 
 export interface ClipFormatOption {
   id: ClipFormat;
@@ -22,9 +29,30 @@ export const CLIP_FORMATS: ClipFormatOption[] = [
   },
   {
     id: 'vertical_crop',
-    label: 'Vertical — Crop',
+    label: 'Vertical — Center Crop',
     icon: '📱',
-    description: 'Center-crop to 9:16 (TikTok / Reels / Shorts)',
+    description: 'Fills screen by cropping sides (Best for centered speakers)',
+    dims: '1080×1920',
+  },
+  {
+    id: 'vertical_blur',
+    label: 'Vertical — Monstah Blur',
+    icon: '🌫️',
+    description: 'Blurred background instead of black bars (The Pro Look)',
+    dims: '1080×1920',
+  },
+  {
+    id: 'vertical_crop_left',
+    label: 'Vertical — Left Crop',
+    icon: '👈',
+    description: 'Crop to focus on the left side',
+    dims: '1080×1920',
+  },
+  {
+    id: 'vertical_crop_right',
+    label: 'Vertical — Right Crop',
+    icon: '👉',
+    description: 'Crop to focus on the right side',
     dims: '1080×1920',
   },
   {
@@ -87,15 +115,23 @@ async function loadFFmpeg(onProgress?: (msg: string) => void): Promise<FFmpeg> {
 
   loaded = true;
   loading = false;
-  onProgress?.('FFmpeg ready!');
   return ffmpeg;
 }
 
-// ─── Video Filter Builder ──────────────────────────────────────────────────────
 function buildVideoFilter(format: ClipFormat): string | null {
   switch (format) {
     case 'vertical_crop':
       return 'crop=ih*9/16:ih:(iw-ih*9/16)/2:0,scale=1080:1920';
+    case 'vertical_crop_left':
+      return 'crop=ih*9/16:ih:0:0,scale=1080:1920';
+    case 'vertical_crop_right':
+      return 'crop=ih*9/16:ih:iw-ih*9/16:0,scale=1080:1920';
+    case 'vertical_blur':
+      // Complex filter for blurred padding: 
+      // 1. Scale background to 1080x1920 (ignoring aspect) & blur it
+      // 2. Scale foreground to fit 1080 width & center it
+      // 3. Overlay the foreground on the background
+      return '[0:v]scale=1080:1920,boxblur=20:10[bg];[0:v]scale=1080:-1[fg];[bg][fg]overlay=y=(H-h)/2';
     case 'vertical_pad':
       return 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black';
     case 'square':
@@ -138,38 +174,21 @@ export async function createMP4Clip(
       ...(vf ? ['-vf', vf] : []),
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
-      '-crf', '22',
-      '-pix_fmt', 'yuv420p', // Standard pixel format for all players (CRITICAL FOR WINDOWS)
+      '-crf', '23',
+      '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
       '-b:a', '128k',
-      '-movflags', '+faststart',
+      '-movflags', 'faststart',
       'output.mp4'
     ];
+
     await ff.exec(args);
-  } catch (err: any) {
-    console.error('FFmpeg error:', err);
+    const data = await ff.readFile('output.mp4');
     await cleanup();
-    throw new Error('Failed to create a compatible clip.');
+    return new Blob([data], { type: 'video/mp4' });
+  } catch (err) {
+    await cleanup();
+    console.error('Clipping failed:', err);
+    throw err;
   }
-
-  onProgress?.('Finalizing...');
-  const data = await ff.readFile('output.mp4') as Uint8Array;
-  await cleanup();
-
-  const blob = new Blob([new Uint8Array(data.buffer as ArrayBuffer)], { type: 'video/mp4' });
-  onProgress?.('Done!');
-  return blob;
-}
-
-// ─── Timestamp / Duration Helpers ─────────────────────────────────────────────
-export function parseTimestamp(timestamp: string): number {
-  const parts = timestamp.split(':').map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return 0;
-}
-
-export function parseDuration(duration: string): number {
-  const match = duration.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 5;
 }
