@@ -76,20 +76,6 @@ const App: React.FC = () => {
     initializeApp();
   }, []);
 
-  useEffect(() => {
-    if (isProcessing) {
-      const interval = setInterval(() => {
-        setAnalysisProgress(prev => {
-          if (prev >= 90) return prev;
-          return prev + Math.random() * 10;
-        });
-      }, 500);
-      return () => clearInterval(interval);
-    } else {
-      setAnalysisProgress(0);
-    }
-  }, [isProcessing]);
-
   const seekToTimestamp = (timestamp: string) => {
     if (!videoRef.current) return;
     const [minutes, seconds] = timestamp.split(':').map(Number);
@@ -106,12 +92,17 @@ const App: React.FC = () => {
     }
     
     setIsProcessing(true);
+    setAnalysisProgress(5); // Start
     setVideoFile(file);
     
     try {
-      const awsUrl = await uploadVideoToAWS(file);
+      // 1. UPLOAD TO AWS (0% - 70%)
+      const awsUrl = await uploadToS3(`uploads/${Date.now()}_${file.name}`, file, file.type, (p) => {
+        setAnalysisProgress(Math.floor(p * 0.7)); // Scale 0-100 to 0-70
+      });
       
-      // 📸 CAPTURE THUMBNAIL
+      // 2. CAPTURE THUMBNAIL (70% - 80%)
+      setAnalysisProgress(75);
       let thumbUrl = '';
       try {
         const thumbBlob = await captureThumbnail(file, 2);
@@ -121,6 +112,8 @@ const App: React.FC = () => {
         console.warn('Thumbnail capture failed, skipping...', e);
       }
       
+      // 3. AI ANALYSIS (80% - 100%)
+      setAnalysisProgress(85);
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => {
@@ -132,6 +125,7 @@ const App: React.FC = () => {
       });
       
       const shots = await analyzeVideoForShots(base64, file.type);
+      setAnalysisProgress(100);
       const videoUrl = URL.createObjectURL(file);
       
       const newProject: VideoProject = {

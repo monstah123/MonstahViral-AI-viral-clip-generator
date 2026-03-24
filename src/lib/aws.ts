@@ -21,7 +21,8 @@ export const s3Client = new S3Client({
 export const uploadToS3 = async (
   filePath: string,
   body: Blob | File | Uint8Array | string,
-  contentType: string
+  contentType: string,
+  onProgress?: (progress: number) => void // 📊 Real progress callback
 ): Promise<string> => {
   try {
     const upload = new Upload({
@@ -31,9 +32,20 @@ export const uploadToS3 = async (
         Key: filePath,
         Body: body,
         ContentType: contentType,
-        ACL: 'public-read', // We need public read so it acts like a public url
+        ACL: 'public-read',
         CacheControl: 'max-age=3600',
       },
+      // Break large files into 5MB chunks for speed/reliability
+      queueSize: 4, 
+      partSize: 1024 * 1024 * 5, 
+      leavePartsOnError: false,
+    });
+
+    upload.on('httpUploadProgress', (progress) => {
+      if (progress.loaded && progress.total) {
+        const percent = Math.round((progress.loaded / progress.total) * 100);
+        onProgress?.(percent);
+      }
     });
 
     await upload.done();
