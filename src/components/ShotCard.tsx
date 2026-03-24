@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { createMP4Clip, parseTimestamp, parseDuration, ClipFormat, CLIP_FORMATS } from '../lib/ffmpegClip';
 import { MonstahShot } from '../types';
-
+// ─── MONSTAH DELUXE CLIPPING 2026 ───
 interface ShotCardProps {
   shot: MonstahShot;
   index: number;
@@ -19,6 +19,7 @@ export default function ShotCard({
   onSelect, 
   videoFile 
 }: ShotCardProps) {
+  console.log('🎬 [Monstah Diagnostic] Available Formats:', CLIP_FORMATS.length);
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<ClipFormat>('original');
@@ -100,13 +101,13 @@ export default function ShotCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 ${
+      transition={{ delay: index * 0.05 }}
+      onClick={() => onSelect(shot)}
+      className={`relative bg-zinc-900/40 p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 group cursor-pointer ${
         isSelected 
-          ? 'ring-2 ring-[#00E7FF] shadow-lg shadow-[#00E7FF]/20' 
-          : 'hover:ring-1 hover:ring-white/30'
+          ? 'border-blue-500 ring-1 ring-blue-500 shadow-2xl shadow-blue-500/10' 
+          : 'border-zinc-700 hover:border-zinc-500 hover:bg-zinc-900/60'
       }`}
-      onClick={handleClick}
     >
       <div className="bg-gradient-to-br from-gray-800/90 to-gray-900/90 backdrop-blur-sm p-4">
         
@@ -159,7 +160,7 @@ export default function ShotCard({
           </button>
 
           {formatOpen && (
-            <div className="absolute bottom-full mb-2 left-0 right-0 z-50 bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+            <div className="absolute top-full mt-2 left-0 right-0 z-[100] bg-zinc-900 border border-zinc-700 rounded-xl overflow-y-auto max-h-64 shadow-2xl shadow-black/50 custom-scrollbar">
               {CLIP_FORMATS.map((fmt) => (
                 <button
                   key={fmt.id}
