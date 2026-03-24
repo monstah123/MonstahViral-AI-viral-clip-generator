@@ -10,6 +10,7 @@ interface ShotCardProps {
   isSelected: boolean;
   onSelect: (shot: MonstahShot) => void;
   videoFile: File | null;
+  originalVideoUrl?: string;
 }
 
 export default function ShotCard({ 
@@ -17,7 +18,8 @@ export default function ShotCard({
   index, 
   isSelected, 
   onSelect, 
-  videoFile 
+  videoFile,
+  originalVideoUrl
 }: ShotCardProps) {
   console.log('🎬 [Monstah Diagnostic] Available Formats:', CLIP_FORMATS.length);
   const [isCreatingClip, setIsCreatingClip] = useState(false);
@@ -48,23 +50,27 @@ export default function ShotCard({
   };
 
   const handleDownloadClip = async () => {
-    if (!videoFile) {
-      toast.error('No video file available. Please re-upload your video.');
+    // If we have neither the file nor the URL, we can't clip
+    if (!videoFile && !originalVideoUrl) {
+      toast.error('No source video found! Please try re-uploading.');
       return;
     }
 
     setIsCreatingClip(true);
-    setProgressMessage('Starting...');
+    setProgressMessage('Loading Brain...');
 
     try {
       const startTime = parseTimestamp(shot.timestamp);
       const clipDuration = parseDuration(duration);
       const endTime = startTime + clipDuration;
 
-      console.log(`📹 Creating MP4 clip: ${shot.timestamp} (${startTime}s - ${endTime}s)`);
+      // Handle the source (File or S3 URL)
+      let source: File | string = videoFile || originalVideoUrl || "";
+      
+      console.log(`📹 Clipping ${typeof source === 'string' ? 'from S3' : 'locally'}: ${shot.timestamp}`);
 
       const clipBlob = await createMP4Clip(
-        videoFile,
+        source, // Pass the File or URL
         startTime,
         endTime,
         (msg) => setProgressMessage(msg),

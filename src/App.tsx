@@ -366,7 +366,7 @@ Export Time: ${new Date().toLocaleString()}
       return newClip;
     } catch (err: any) {
       console.error('Clip error:', err);
-      alert('Clip creation failed. Check console for details.');
+      alert(`👹 MONSTAH ERROR: ${err.message || 'Unknown clipping failure'}\n\nCheck the console (Inspect > Console) for the full breakdown.`);
       return null;
     } finally {
       setIsClipping(false);
@@ -621,6 +621,7 @@ Export Time: ${new Date().toLocaleString()}
                     isSelected={selectedShot?.id === shot.id}
                     onSelect={handleSelectShot}
                     videoFile={videoFile}
+                    originalVideoUrl={project.originalVideoUrl}
                   />
                 ))}
               </div>

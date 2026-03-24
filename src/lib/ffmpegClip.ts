@@ -155,7 +155,7 @@ function buildVideoFilter(format: ClipFormat): string | null {
 
 // ─── Main Export ───────────────────────────────────────────────────────────────
 export async function createMP4Clip(
-  videoFile: File,
+  videoFile: File | string,
   startTime: number,
   endTime: number,
   onProgress?: (msg: string) => void,
@@ -164,10 +164,17 @@ export async function createMP4Clip(
   const ff = await loadFFmpeg(onProgress);
   const duration = endTime - startTime;
 
-  onProgress?.('Reading video file...');
-  const ext = videoFile.name.split('.').pop()?.toLowerCase() || 'mp4';
+  onProgress?.('Reading video data...');
+  const ext = typeof videoFile === 'string' ? 'mp4' : (videoFile.name.split('.').pop()?.toLowerCase() || 'mp4');
   const inputName = `input.${ext}`;
-  await ff.writeFile(inputName, await fetchFile(videoFile));
+  
+  try {
+    const fileContent = await fetchFile(videoFile);
+    await ff.writeFile(inputName, fileContent);
+  } catch (err) {
+    console.error('Fetch error:', err);
+    throw new Error('Failed to load video source. Check S3 CORS settings!');
+  }
 
   const vf = buildVideoFilter(format);
   onProgress?.(format === 'original' ? 'Processing video...' : `Converting to ${CLIP_FORMATS.find(f => f.id === format)?.label}...`);
