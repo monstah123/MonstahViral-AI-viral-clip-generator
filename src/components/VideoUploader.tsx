@@ -155,7 +155,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
                 {isDragging ? 'DROP IT HERE!' : 'DRAG YOUR VIDEO'}
               </h3>
               <p className="text-gray-400 text-lg max-w-sm mx-auto">
-                Upload up to 50MB and let the <span className="text-orange-500 font-bold italic">Monstah</span> find your next viral hit
+                Drop your video and let the <span className="text-orange-500 font-bold italic">Monstah</span> find your next viral hit
               </p>
             </div>
 
@@ -176,7 +176,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
             {/* Formats info */}
             <p className="text-zinc-600 text-sm font-mono tracking-widest flex items-center gap-2 uppercase">
-              MP4 • MOV • AVI • 50MB MAX
+              MP4 • MOV • AVI • UNLIMITED
             </p>
           </div>
         </div>
