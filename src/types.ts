@@ -13,7 +13,7 @@ export interface VideoClip {
   originalShotId: string;
   timestamp: string;
   duration: string;
-  supabaseUrl: string;
+  s3Url: string;
   metadata?: {
     shotId: string;
     timestamp: string;
@@ -36,7 +36,7 @@ export interface VideoProject {
   id: string;
   title: string;
   originalVideoUrl: string;
-  supabaseUrl?: string;
+  s3Url?: string;
   status: 'idle' | 'analyzing' | 'ready' | 'generating' | 'complete';
   shots: MonstahShot[];
   clips?: VideoClip[];

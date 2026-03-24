@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { uploadToS3, listItemsFromS3, testS3File } from '../lib/aws';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
@@ -130,7 +130,7 @@ export const createMp4Clip = async (
 
     // Read the output
     const mp4Data = await ffmpeg.readFile('output.mp4');
-    const mp4Blob = new Blob([mp4Data], { type: 'video/mp4' });
+    const mp4Blob = new Blob([mp4Data as any], { type: 'video/mp4' });
     
     console.log(`✅ MP4 created: ${(mp4Blob.size / (1024 * 1024)).toFixed(2)}MB`);
 
@@ -155,28 +155,16 @@ export const createMp4Clip = async (
     setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
     console.log('✅ Downloaded to PC:', fileName);
 
-    // Upload to Supabase
-    console.log('☁️ Uploading to Supabase...');
-    const supabaseFileName = `clip_${timestamp.replace(':', '-')}_${durationSeconds}s_${Date.now()}.mp4`;
-    const filePath = `clips/${supabaseFileName}`;
+    // Upload to AWS S3
+    console.log('☁️ Uploading to AWS S3...');
+    const s3FileName = `clip_${timestamp.replace(':', '-')}_${durationSeconds}s_${Date.now()}.mp4`;
+    const filePath = `clips/${s3FileName}`;
 
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .upload(filePath, mp4Blob, {
-        contentType: 'video/mp4',
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) throw error;
-
-    const { data: { publicUrl } } = supabase.storage
-      .from('videos')
-      .getPublicUrl(filePath);
+    const publicUrl = await uploadToS3(filePath, mp4Blob, 'video/mp4');
 
     const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`✅ COMPLETE! Total time: ${totalTime}s`);
-    console.log('📦 Supabase URL:', publicUrl);
+    console.log('📦 AWS S3 URL:', publicUrl);
     
     return publicUrl;
 
@@ -204,19 +192,20 @@ export const downloadClip = async (timestamp: string, duration: string): Promise
 
 export const listClips = async (): Promise<Array<{ name: string; url: string }>> => {
   try {
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .list('clips', {
-        limit: 100,
-        offset: 0,
-        sortBy: { column: 'created_at', order: 'desc' }
-      });
+    const items = await listItemsFromS3('clips/');
+    
+    const sorted = items.sort((a, b) => {
+      const timeA = a.LastModified ? a.LastModified.getTime() : 0;
+      const timeB = b.LastModified ? b.LastModified.getTime() : 0;
+      return timeB - timeA;
+    });
 
-    if (error) throw error;
+    const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME || '';
+    const region = import.meta.env.VITE_AWS_REGION || 'us-east-1';
 
-    return data.map(file => ({
-      name: file.name,
-      url: supabase.storage.from('videos').getPublicUrl(`clips/${file.name}`).data.publicUrl
+    return sorted.map(file => ({
+      name: file.Key || '',
+      url: `https://${bucketName}.s3.${region}.amazonaws.com/${file.Key}`
     }));
   } catch (error) {
     console.error('Error listing clips:', error);
@@ -225,10 +214,5 @@ export const listClips = async (): Promise<Array<{ name: string; url: string }>>
 };
 
 export const testOriginalVideo = async (url: string): Promise<boolean> => {
-  try {
-    const response = await fetch(url, { method: 'HEAD' });
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return await testS3File(url);
 };

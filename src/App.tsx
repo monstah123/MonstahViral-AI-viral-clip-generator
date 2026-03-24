@@ -4,7 +4,7 @@ import { VideoProject, MonstahShot, VideoClip } from './types';
 import Header from './components/Header';
 import VideoUploader from './components/VideoUploader';
 import ShotCard from './components/ShotCard';
-import { supabase } from './lib/supabase';
+import { uploadToS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
 import { Sparkles } from 'lucide-react';
 
@@ -62,7 +62,7 @@ const App: React.FC = () => {
     setVideoFile(file);
     
     try {
-      const supabaseUrl = await uploadVideoToSupabase(file);
+      const awsUrl = await uploadVideoToAWS(file);
       
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -81,7 +81,7 @@ const App: React.FC = () => {
         id: Math.random().toString(36).substr(2, 9),
         title: file.name,
         originalVideoUrl: videoUrl,
-        supabaseUrl: supabaseUrl,
+        s3Url: awsUrl,
         status: 'ready',
         shots,
         clips: []
@@ -92,7 +92,7 @@ const App: React.FC = () => {
         setTimeout(() => seekToTimestamp(shots[0].timestamp), 500);
       }
       
-      setUploadedVideoUrl(supabaseUrl);
+      setUploadedVideoUrl(awsUrl);
       
     } catch (error: any) {
       console.error("❌ Upload/Analysis failed:", error);
@@ -149,7 +149,7 @@ Export Time: ${new Date().toLocaleString()}
       }
       setIsProcessing(true);
       try {
-        const url = await uploadVideoToSupabase(file);
+        const url = await uploadVideoToAWS(file);
         alert(`✅ Upload successful!\n\nURL: ${url}`);
         setUploadedVideoUrl(url);
       } catch (error: any) {
@@ -161,31 +161,17 @@ Export Time: ${new Date().toLocaleString()}
     input.click();
   };
 
-  const uploadVideoToSupabase = async (file: File): Promise<string> => {
+  const uploadVideoToAWS = async (file: File): Promise<string> => {
     const timestamp = Date.now();
     const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const fileName = `${timestamp}_${cleanName}`;
     const filePath = `uploads/${fileName}`;
     
-    const { data, error } = await supabase.storage
-      .from('videos')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type || 'video/mp4'
-      });
-    
-    if (error) throw error;
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('videos')
-      .getPublicUrl(filePath);
-    
-    return publicUrl;
+    return await uploadToS3(filePath, file, file.type || 'video/mp4');
   };
 
   const clipAndUploadShot = async (shot: MonstahShot): Promise<VideoClip | null> => {
-    if (!project?.supabaseUrl) {
+    if (!project?.s3Url) {
       alert("No video loaded");
       return null;
     }
@@ -197,7 +183,7 @@ Export Time: ${new Date().toLocaleString()}
       const clipDuration = durationMatch ? parseInt(durationMatch[1]) : duration;
 
       const clipUrl = await createMp4Clip(
-        project.originalVideoUrl || project.supabaseUrl,
+        project.originalVideoUrl || project.s3Url,
         shot.timestamp,
         `${clipDuration}s`,
         shot.description
@@ -212,7 +198,7 @@ Export Time: ${new Date().toLocaleString()}
         originalShotId: shot.id,
         timestamp: shot.timestamp,
         duration: `${clipDuration}s`,
-        supabaseUrl: clipUrl,
+        s3Url: clipUrl,
         metadata: {
           shotId: shot.id,
           timestamp: shot.timestamp,
@@ -227,7 +213,7 @@ Export Time: ${new Date().toLocaleString()}
           originalVideo: project.title,
           createdAt: new Date().toISOString(),
           projectId: project.id,
-          originalVideoUrl: project.supabaseUrl,
+          originalVideoUrl: project.s3Url,
           viralScore: shot.score,
           suggestedHashtags: shot.tags
         },
@@ -269,18 +255,10 @@ Export Time: ${new Date().toLocaleString()}
       const testBlob = new Blob([mockContent], { type: 'video/mp4' });
       const testFile = new File([testBlob], `test_${Date.now()}.mp4`, { type: 'video/mp4' });
       
-      const { data, error } = await supabase.storage
-        .from('videos')
-        .upload(`test/test_${Date.now()}.mp4`, testFile, {
-          contentType: 'video/mp4'
-        });
+      const filePath = `test/test_${Date.now()}.mp4`;
+      await uploadToS3(filePath, testFile, 'video/mp4');
       
-      if (error) {
-        alert(`Test failed: ${error.message}`);
-        return false;
-      }
-      
-      alert('✅ Test passed! Your bucket accepts video files.');
+      alert('✅ Test passed! Your AWS bucket accepts video files.');
       return true;
       
     } catch (error: any) {
@@ -290,12 +268,12 @@ Export Time: ${new Date().toLocaleString()}
   };
 
   const handleTestClips = async () => {
-    if (!project?.supabaseUrl) {
+    if (!project?.s3Url) {
       alert('No project loaded');
       return;
     }
     
-    const videoOk = await testOriginalVideo(project.supabaseUrl);
+    const videoOk = await testOriginalVideo(project.s3Url);
     const clips = await listClips();
     
     if (clips.length === 0) {
@@ -477,7 +455,7 @@ Export Time: ${new Date().toLocaleString()}
                           <p className="font-medium">{clip.timestamp} - {clip.duration}</p>
                           <p className="text-sm text-gray-400">Created: {new Date(clip.createdAt).toLocaleTimeString()}</p>
                         </div>
-                        <a href={clip.supabaseUrl} download className="px-3 py-1 bg-blue-500 hover:bg-blue-400 rounded text-sm">Download</a>
+                        <a href={clip.s3Url} download className="px-3 py-1 bg-blue-500 hover:bg-blue-400 rounded text-sm">Download</a>
                       </div>
                     ))}
                   </div>
