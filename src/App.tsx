@@ -314,22 +314,18 @@ Export Time: ${new Date().toLocaleString()}
   };
 
   const clipAndUploadShot = async (shot: MonstahShot): Promise<VideoClip | null> => {
-    if (!project?.s3Url) {
-      alert("No video loaded");
-      return null;
-    }
-    
+    if (!project) return null;
     setIsClipping(true);
+    
     try {
-      const duration = 15;
-      const durationMatch = shot.duration.match(/(\d+)/);
-      const clipDuration = durationMatch ? parseInt(durationMatch[1]) : duration;
-
+      const durSec = parseInt(shot.duration.replace('s', '')) || 15;
+      
       const clipUrl = await createMp4Clip(
-        project.originalVideoUrl || project.s3Url,
+        project.originalVideoUrl,
         shot.timestamp,
-        `${clipDuration}s`,
-        shot.description
+        shot.duration,
+        shot.trigger || shot.description || "",
+        'vertical_crop' // Default to our elite 2026 zoom
       );
 
       if (!clipUrl) {
@@ -340,7 +336,7 @@ Export Time: ${new Date().toLocaleString()}
         id: `clip_${Date.now()}`,
         originalShotId: shot.id,
         timestamp: shot.timestamp,
-        duration: `${clipDuration}s`,
+        duration: shot.duration,
         s3Url: clipUrl,
         metadata: {
           shotId: shot.id,
@@ -349,14 +345,15 @@ Export Time: ${new Date().toLocaleString()}
             const [min, sec] = shot.timestamp.split(':').map(Number);
             return min * 60 + sec;
           })(),
-          duration: clipDuration,
+          duration: durSec,
+          trigger: shot.trigger,
           description: shot.description,
           score: shot.score,
           tags: shot.tags,
           originalVideo: project.title,
           createdAt: new Date().toISOString(),
           projectId: project.id,
-          originalVideoUrl: project.s3Url,
+          originalVideoUrl: project.originalVideoUrl,
           viralScore: shot.score,
           suggestedHashtags: shot.tags
         },
@@ -364,20 +361,18 @@ Export Time: ${new Date().toLocaleString()}
       };
       
       setGeneratedClips(prev => [...prev, newClip]);
-      if (project) {
-        setProject({
-          ...project,
-          clips: [...(project.clips || []), newClip]
-        });
-      }
       
-      alert(`✅ Clip Created!\n\nTimestamp: ${shot.timestamp}\nDuration: ${clipDuration}s\n\nYou can download it from the shot card!`);
+      setProject({
+        ...project,
+        clips: [...(project.clips || []), newClip]
+      });
+      
+      alert(`✅ Clip Created!\n\nTimestamp: ${shot.timestamp}\nDuration: ${shot.duration}\n\nYou can download it from the shot card!`);
       
       return newClip;
-      
-    } catch (error: any) {
-      console.error("❌ Clip creation failed:", error);
-      alert(`Clip creation failed: ${error.message}`);
+    } catch (err: any) {
+      console.error('Clip error:', err);
+      alert('Clip creation failed. Check console for details.');
       return null;
     } finally {
       setIsClipping(false);

@@ -1,6 +1,18 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
+// ─── Utility Helpers ──────────────────────────────────────────────────────────
+export function parseTimestamp(ts: string): number {
+  const parts = ts.split(':').map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
+export function parseDuration(dur: string): number {
+  return parseInt(dur.replace('s', '')) || 15;
+}
+
 // ─── Format Types ─────────────────────────────────────────────────────────────
 export type ClipFormat = 
   | 'original' 
@@ -185,7 +197,7 @@ export async function createMP4Clip(
     await ff.exec(args);
     const data = await ff.readFile('output.mp4');
     await cleanup();
-    return new Blob([data], { type: 'video/mp4' });
+    return new Blob([data instanceof Uint8Array ? data : new Uint8Array(data as any)], { type: 'video/mp4' });
   } catch (err) {
     await cleanup();
     console.error('Clipping failed:', err);
