@@ -274,14 +274,14 @@ Export Time: ${new Date().toLocaleString()}
     <div className="min-h-screen bg-black pb-20">
       <Header />
 
-      {/* 🫧 Back to Landing Bubble */}
+      {/* 🫧 Home Bubble — Moved down to avoid header overlap */}
       <button
         onClick={() => setShowLanding(true)}
         title="Back to Home"
-        className="fixed top-4 right-4 z-50 group flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-900 border border-zinc-700 hover:border-purple-500/60 hover:bg-zinc-800 transition-all duration-300 shadow-xl hover:shadow-purple-500/20 hover:scale-105 active:scale-95"
+        className="fixed top-20 right-4 sm:right-6 z-50 group flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full bg-zinc-900/90 backdrop-blur-md border border-zinc-700 hover:border-blue-500/60 hover:bg-zinc-800 transition-all duration-300 shadow-2xl hover:shadow-blue-500/20 hover:scale-105 active:scale-95"
       >
-        <span className="text-xl">👹</span>
-        <span className="text-sm font-bold text-gray-400 group-hover:text-white transition-colors hidden sm:inline">Home</span>
+        <span className="text-lg sm:text-xl">🏠</span>
+        <span className="text-xs sm:text-sm font-bold text-gray-400 group-hover:text-white transition-colors">HOME</span>
       </button>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

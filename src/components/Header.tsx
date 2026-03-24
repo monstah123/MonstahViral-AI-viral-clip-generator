@@ -24,8 +24,8 @@ const Header: React.FC = () => {
             <a href="#showcase" className="text-gray-300 hover:text-white transition-colors font-medium text-sm hidden md:block">
               SHOWCASE
             </a>
-            <button className="px-4 py-1.5 sm:px-6 sm:py-2 bg-white text-black rounded-full font-bold hover:bg-gray-100 transition-colors text-sm whitespace-nowrap">
-              Pro Plan
+            <button className="px-4 py-1.5 sm:px-6 sm:py-2 bg-gradient-to-r from-zinc-800 to-zinc-900 border border-zinc-700 text-gray-300 rounded-full font-bold hover:text-white hover:border-zinc-500 transition-all text-[10px] sm:text-xs tracking-widest whitespace-nowrap uppercase">
+              COMING SOON
             </button>
           </nav>
         </div>
