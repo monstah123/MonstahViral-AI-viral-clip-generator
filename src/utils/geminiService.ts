@@ -13,35 +13,32 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
     console.log('🎬 Analyzing video with Gemini AI...');
     console.log('Video size:', (base64Video.length / 1024 / 1024).toFixed(2), 'MB (base64)');
 
-    const prompt = `Analyze this video and identify 4-6 potential viral short-form clips suitable for TikTok, Instagram Reels, or YouTube Shorts.
+    const prompt = `You are an Elite 2026 Viral Growth Architect for TikTok, Reels, and YouTube Shorts. 
+The attention economy is more competitive than ever. Use your advanced predictive models to identify "Ultra-High Retention" moments.
 
-For each viral moment, provide:
-1. **Timestamp** (MM:SS format, e.g., "00:15")
-2. **Duration** (8-15 seconds optimal, can go up to 20s for exceptional moments)
-3. **Description** (engaging description of what makes this moment viral-worthy)
-4. **Viral Score** (0-100, how likely this will go viral)
-5. **Hashtags** (5-7 trending hashtags relevant to the moment)
+For a video of this length, extract 6 to 12 banger clips.
 
-Focus on moments that have:
-- Strong hook in the first 2 seconds (action, surprise, or intrigue)
-- Clear narrative arc that completes within 8-15 seconds
-- High energy or emotional peaks
-- Satisfying or relatable payoff
-- Rewatchability factor
+2026 VIRAL CRITERIA:
+1. **MICRO-HOOK CHAINS**: Don't just find one hook—find segments with at least 3 distinct "micro-hooks" in the first 5 seconds (rapid visual/audio changes).
+2. **META-ATTENTION TRIGGERS**: Look for moments where the creator breaks the 4th wall or uses "pattern-fractals" (unexpected shifts in tone or perspective).
+3. **PEAK DOPAMINE SPIKES**: Identify the exact frames of the highest visual or emotional intensity.
+4. **LOOP POTENTIAL**: Find clips that end on a "curiosity cliffhanger" or naturally loop back to the start.
 
-DURATION GUIDELINES:
-- 8-10s: Quick reactions, satisfying loops, rapid reveals
-- 11-15s: Mini-stories, before/after, skill demonstrations  
-- 16-20s: Complex narratives (use sparingly, only if truly engaging)
+FOR EACH CLIP, PROVIDE:
+- **Timestamp**: Exact start (MM:SS)
+- **Duration**: (6s to 18s) - Shorter is often better in 2026.
+- **Description**: Explain the "Psychological Trigger" used in this clip.
+- **Viral Score**: 0-100 (Be brutal: 90+ means it has 10M+ potential).
+- **Hashtags**: Deep-meta trending tags.
 
-Return your response as a JSON array of objects with this exact structure:
+Return ONLY a JSON array of objects with this structure:
 [
   {
-    "timestamp": "00:15",
-    "duration": "12s",
-    "description": "...",
-    "score": 92,
-    "tags": ["#tag1", "#tag2", "#tag3"]
+    "timestamp": "02:15",
+    "duration": "10s",
+    "description": "Utilizes a triple micro-hook chain (visual pop, sound shift, facial reaction) leading to a loopable payoff...",
+    "score": 96,
+    "tags": ["#trending2026", "#meta", "..."]
   }
 ]
 
