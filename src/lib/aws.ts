@@ -1,4 +1,4 @@
-import { S3Client, ListObjectsV2Command, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, ListObjectsV2Command, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 
 // AWS Configuration from environment variables
@@ -47,9 +47,25 @@ export const uploadToS3 = async (
 };
 
 /**
+ * Helper to delete an item
+ */
+export const deleteFromS3 = async (key: string) => {
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+    });
+    await s3Client.send(command);
+  } catch (error) {
+    console.error('AWS S3 Delete Error:', error);
+    throw error;
+  }
+};
+
+/**
  * Helper to list items with a specific prefix
  */
-export const listItemsFromS3 = async (prefix: string) => {
+export const listItemsFromS3 = async (prefix: string = '') => {
   try {
     const command = new ListObjectsV2Command({
       Bucket: bucketName,

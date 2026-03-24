@@ -5,9 +5,9 @@ import Header from './components/Header';
 import VideoUploader from './components/VideoUploader';
 import ShotCard from './components/ShotCard';
 import LandingPage from './components/LandingPage';
-import { uploadToS3 } from './lib/aws';
+import { uploadToS3, listItemsFromS3, deleteFromS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, History, Trash2, ExternalLink, ArrowLeft } from 'lucide-react';
 
 const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
@@ -16,11 +16,35 @@ const App: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
-  const [generatedClips, setGeneratedClips] = useState<VideoClip[]>([]);
   const [isClipping, setIsClipping] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Load history on mount
+  useEffect(() => {
+    if (!showLanding) {
+      loadHistory();
+    }
+  }, [showLanding]);
+
+  const loadHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const items = await listItemsFromS3('projects/');
+      // Map and sort by last modified
+      const sorted = items
+        .filter(item => item.Key?.endsWith('.json'))
+        .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0));
+      setRecentProjects(sorted);
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -79,7 +103,7 @@ const App: React.FC = () => {
       const shots = await analyzeVideoForShots(base64, file.type);
       const videoUrl = URL.createObjectURL(file);
       
-      setProject({
+      const newProject: VideoProject = {
         id: Math.random().toString(36).substr(2, 9),
         title: file.name,
         originalVideoUrl: videoUrl,
@@ -87,7 +111,13 @@ const App: React.FC = () => {
         status: 'ready',
         shots,
         clips: []
-      });
+      };
+
+      setProject(newProject);
+      
+      // Save metadata to AWS automatically
+      await saveProjectToAWS(newProject, awsUrl);
+      loadHistory(); // Refresh history
       
       if (shots.length > 0) {
         setSelectedShot(shots[0]);
@@ -101,6 +131,87 @@ const App: React.FC = () => {
       alert(error.message || 'Unknown error');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const saveProjectToAWS = async (proj: VideoProject, videoS3Url: string) => {
+    try {
+      const timestamp = Date.now();
+      const fileName = `projects/${timestamp}_${proj.title.replace(/[^a-zA-Z0-9.-]/g, '_')}.json`;
+      const metadata = {
+        ...proj,
+        s3Url: videoS3Url, // Use the real S3 URL for persistence
+        saveDate: new Date().toISOString()
+      };
+      
+      await uploadToS3(fileName, JSON.stringify(metadata, null, 2), 'application/json');
+    } catch (err) {
+      console.error('Failed to save project metadata:', err);
+    }
+  };
+
+  const loadProjectFromS3 = async (key: string) => {
+    setIsProcessing(true);
+    try {
+      // 1. Get the JSON metadata from S3
+      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
+      const region = import.meta.env.VITE_AWS_REGION;
+      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load project metadata');
+      const proj = await response.json();
+
+      // 2. Set the project (Note: originalVideoUrl will be the S3 URL now)
+      setProject({
+        ...proj,
+        originalVideoUrl: proj.s3Url // Load directly from S3
+      });
+      setUploadedVideoUrl(proj.s3Url);
+      
+      if (proj.shots && proj.shots.length > 0) {
+        setSelectedShot(proj.shots[0]);
+      }
+      
+    } catch (err) {
+      console.error('Failed to load project:', err);
+      alert('Failed to load project. The file might have been moved or deleted.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteProject = async (projKey: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!confirm('Are you sure you want to delete this project? This will remove the video and analysis from AWS.')) return;
+
+    try {
+      // 1. First, we need to find the video URL to delete the video too
+      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
+      const region = import.meta.env.VITE_AWS_REGION;
+      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${projKey}`;
+      const response = await fetch(url);
+      const projData = await response.json();
+
+      // 2. Delete Metadata JSON
+      await deleteFromS3(projKey);
+
+      // 3. Delete Video file if it exists and follows our naming convention
+      if (projData.s3Url) {
+         const videoKey = projData.s3Url.split('.amazonaws.com/')[1];
+         if (videoKey) await deleteFromS3(videoKey);
+      }
+
+      // 4. Force reset if current project
+      if (project?.title === projData.title) {
+        setProject(null);
+      }
+
+      loadHistory();
+      alert('Project deleted successfully from AWS.');
+    } catch (err) {
+      console.error('Delete failed:', err);
+      alert('Partial delete: Error removing files from AWS.');
     }
   };
 
@@ -338,12 +449,75 @@ Export Time: ${new Date().toLocaleString()}
                 </div>
               </div>
             ) : (
-              /* UPLOAD AREA */
-              <>
-              <div className="w-full">
+              /* UPLOAD AREA + VAULT */
+              <div className="w-full space-y-16">
                 <VideoUploader onUpload={handleFileUpload} isLoading={isProcessing} />
+
+                {/* 🏰 THE MONSTAH VAULT: RECENT PROJECTS SECTION */}
+                {recentProjects.length > 0 && (
+                  <div className="w-full max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div className="flex items-center gap-3 mb-8 px-4">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <History className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <h2 className="text-2xl font-black text-white tracking-tight">RECENT VENTURES</h2>
+                      <div className="h-px flex-grow bg-gradient-to-r from-zinc-800 to-transparent ml-4"></div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 px-2">
+                      {recentProjects.map((item: any) => {
+                        const key = item.Key;
+                        const cleanName = key.split('/').pop().replace('.json', '');
+                        const timestampMatch = cleanName.match(/^\d+/);
+                        const fileName = cleanName.replace(/^\d+_/, '').replace(/_/g, ' ');
+                        const date = new Date(item.LastModified).toLocaleDateString();
+                        
+                        return (
+                          <div 
+                            key={key}
+                            className="group relative bg-zinc-900/40 border border-zinc-800 hover:border-blue-500/40 rounded-2xl p-5 transition-all hover:scale-[1.02] hover:bg-zinc-900/60 shadow-xl"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div 
+                                className="flex-grow cursor-pointer"
+                                onClick={() => loadProjectFromS3(key)}
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[10px] font-mono font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-md">{date}</span>
+                                </div>
+                                <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1 uppercase tracking-tight">
+                                  {fileName}
+                                </h3>
+                                <div className="flex items-center gap-4 mt-3">
+                                   <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold group-hover:text-white transition-colors">
+                                     <ExternalLink className="w-3.5 h-3.5" />
+                                     LOAD VENTURE
+                                   </div>
+                                </div>
+                              </div>
+                              
+                              <button 
+                                onClick={(e) => handleDeleteProject(key, e)}
+                                className="p-2.5 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                                title="Delete from AWS"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {isLoadingHistory && (
+                  <div className="mt-8 flex flex-col items-center gap-3 text-zinc-600 animate-pulse">
+                    <div className="w-6 h-6 border-2 border-zinc-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-xs font-black tracking-widest uppercase">Opening Vault...</span>
+                  </div>
+                )}
               </div>
-              </>
             )}
           </div>
         ) : (
