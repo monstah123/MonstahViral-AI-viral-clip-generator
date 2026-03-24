@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { createMP4Clip, parseTimestamp, parseDuration } from '../lib/ffmpegClip';
+import { createMP4Clip, parseTimestamp, parseDuration, ClipFormat, CLIP_FORMATS } from '../lib/ffmpegClip';
 import { MonstahShot } from '../types';
 
 interface ShotCardProps {
@@ -21,6 +21,8 @@ export default function ShotCard({
 }: ShotCardProps) {
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState<ClipFormat>('original');
+  const [formatOpen, setFormatOpen] = useState(false);
 
   const handleClick = () => {
     onSelect(shot);
@@ -64,12 +66,14 @@ export default function ShotCard({
         videoFile,
         startTime,
         endTime,
-        (msg) => setProgressMessage(msg)
+        (msg) => setProgressMessage(msg),
+        selectedFormat
       );
 
       // Download the clip
       const url = URL.createObjectURL(clipBlob);
-      const filename = `monstah_clip_${shot.timestamp.replace(/:/g, '-')}_${clipDuration}s.mp4`;
+      const fmt = CLIP_FORMATS.find(f => f.id === selectedFormat);
+      const filename = `monstah_${fmt?.id}_${shot.timestamp.replace(/:/g, '-')}_${clipDuration}s.mp4`;
       
       const a = document.createElement('a');
       a.href = url;
@@ -138,7 +142,52 @@ export default function ShotCard({
           )}
         </div>
 
-        {/* Download Button */}
+        {/* ── Format Dropdown ── */}
+        <div className="mb-3 relative">
+          <button
+            onClick={(e) => { e.stopPropagation(); setFormatOpen(o => !o); }}
+            className="w-full flex items-center justify-between px-3 py-2.5 bg-zinc-800/80 hover:bg-zinc-700/80 border border-zinc-700 hover:border-zinc-500 rounded-xl text-sm transition-all"
+          >
+            <div className="flex items-center gap-2">
+              <span>{CLIP_FORMATS.find(f => f.id === selectedFormat)?.icon}</span>
+              <span className="font-semibold text-white">{CLIP_FORMATS.find(f => f.id === selectedFormat)?.label}</span>
+              <span className="text-gray-500 text-xs">{CLIP_FORMATS.find(f => f.id === selectedFormat)?.dims}</span>
+            </div>
+            <svg className={`w-4 h-4 text-gray-400 transition-transform ${formatOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {formatOpen && (
+            <div className="absolute bottom-full mb-2 left-0 right-0 z-50 bg-zinc-900 border border-zinc-700 rounded-xl overflow-hidden shadow-2xl shadow-black/50">
+              {CLIP_FORMATS.map((fmt) => (
+                <button
+                  key={fmt.id}
+                  onClick={(e) => { e.stopPropagation(); setSelectedFormat(fmt.id); setFormatOpen(false); }}
+                  className={`w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-800 transition-colors border-b border-zinc-800 last:border-0 ${
+                    selectedFormat === fmt.id ? 'bg-blue-500/10 border-l-2 border-l-blue-500' : ''
+                  }`}
+                >
+                  <span className="text-xl flex-shrink-0 mt-0.5">{fmt.icon}</span>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-white">{fmt.label}</span>
+                      <span className="text-xs text-gray-500 font-mono">{fmt.dims}</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{fmt.description}</p>
+                  </div>
+                  {selectedFormat === fmt.id && (
+                    <svg className="w-4 h-4 text-blue-400 ml-auto flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Download Button ── */}
         <button
           onClick={(e) => {
             e.stopPropagation();
