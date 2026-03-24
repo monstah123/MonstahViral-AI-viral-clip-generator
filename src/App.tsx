@@ -4,11 +4,13 @@ import { VideoProject, MonstahShot, VideoClip } from './types';
 import Header from './components/Header';
 import VideoUploader from './components/VideoUploader';
 import ShotCard from './components/ShotCard';
+import LandingPage from './components/LandingPage';
 import { uploadToS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
 import { Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [showLanding, setShowLanding] = useState(true);
   const [project, setProject] = useState<VideoProject | null>(null);
   const [selectedShot, setSelectedShot] = useState<MonstahShot | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -235,6 +237,10 @@ Export Time: ${new Date().toLocaleString()}
     setVideoFile(null);
   };
 
+  if (showLanding) {
+    return <LandingPage onStart={() => setShowLanding(false)} />;
+  }
+
   if (hasApiKey === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -339,7 +345,7 @@ Export Time: ${new Date().toLocaleString()}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {project.shots.map((shot, index) => (
                   <ShotCard 
-                    key={shot.id} 
+                    key={shot.id}
                     shot={shot}
                     index={index}
                     isSelected={selectedShot?.id === shot.id}

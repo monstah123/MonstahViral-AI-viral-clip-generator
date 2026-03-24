@@ -1,43 +1,33 @@
-// src/components/ShotCard.tsx
-'use client';
-
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { createMP4Clip, parseTimestamp, parseDuration } from '../lib/ffmpegClip';
+import { MonstahShot } from '../types';
 
 interface ShotCardProps {
-  shot: any;
-  index?: number;
-  isSelected?: boolean;
-  isActive?: boolean;
-  onSelect?: (shot: any) => void;
-  onClick?: () => void;
-  videoFile?: File | null;
+  shot: MonstahShot;
+  index: number;
+  isSelected: boolean;
+  onSelect: (shot: MonstahShot) => void;
+  videoFile: File | null;
 }
 
 export default function ShotCard({ 
   shot, 
-  index = 0, 
+  index, 
   isSelected, 
-  isActive,
   onSelect, 
-  onClick,
   videoFile 
 }: ShotCardProps) {
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
 
-  // Handle both prop names
-  const selected = isSelected ?? isActive ?? false;
   const handleClick = () => {
-    if (onClick) onClick();
-    if (onSelect) onSelect(shot);
+    onSelect(shot);
   };
 
-  // Handle both score formats
-  const viralScore = shot.viralScore ?? shot.score ?? 0;
-  const hashtags = shot.hashtags ?? shot.tags ?? [];
+  const viralScore = shot.score || 0;
+  const hashtags = shot.tags || [];
   const duration = shot.duration || '5s';
 
   const getViralColor = (score: number) => {
@@ -108,7 +98,7 @@ export default function ShotCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 ${
-        selected 
+        isSelected 
           ? 'ring-2 ring-[#00E7FF] shadow-lg shadow-[#00E7FF]/20' 
           : 'hover:ring-1 hover:ring-white/30'
       }`}
@@ -188,18 +178,18 @@ export default function ShotCard({
             handleClick();
           }}
           className={`w-full mt-2 py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-            selected
+            isSelected
               ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
               : 'bg-gradient-to-r from-[#00E7FF] to-[#0080FF] hover:from-[#00D4E7] hover:to-[#0070E0] text-white'
           }`}
         >
           <span className="text-lg">👀</span>
-          {selected ? 'VIEWING NOW' : 'VIEW THIS SHOT'}
+          {isSelected ? 'VIEWING NOW' : 'VIEW THIS SHOT'}
         </button>
       </div>
 
       {/* Selection Indicator */}
-      {selected && (
+      {isSelected && (
         <div className="absolute top-2 left-2">
           <div className="w-3 h-3 bg-[#00E7FF] rounded-full animate-pulse" />
         </div>

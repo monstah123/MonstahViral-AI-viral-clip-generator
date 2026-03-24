@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { Upload, FileVideo, Plus } from 'lucide-react';
 
 interface VideoUploaderProps {
@@ -6,8 +6,46 @@ interface VideoUploaderProps {
   isLoading: boolean;
 }
 
+// Synthesize a quick "whoosh" hover sound using Web Audio API
+const playHoverSound = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const dist = ctx.createWaveShaper();
+
+    // Slight distortion for texture
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i * 2) / 256 - 1;
+      curve[i] = (Math.PI + 100) * x / (Math.PI + 100 * Math.abs(x));
+    }
+    dist.curve = curve;
+
+    osc.connect(dist);
+    dist.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+
+    osc.onended = () => ctx.close();
+  } catch (_) {
+    // Silently fail if audio is blocked
+  }
+};
+
 const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) => {
   const [isDragging, setIsDragging] = useState(false);
+  const [hasHovered, setHasHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,6 +65,9 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    if (!isDragging) {
+      playHoverSound();
+    }
     setIsDragging(true);
   };
 
@@ -69,6 +110,9 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => !isDragging && handleBrowseClick()}
+        onMouseEnter={() => {
+          playHoverSound();
+        }}
         className={`
           relative group cursor-pointer transition-all duration-500
           rounded-[2rem] border-2 border-dashed overflow-hidden
