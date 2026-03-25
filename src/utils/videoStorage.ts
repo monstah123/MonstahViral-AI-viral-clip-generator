@@ -55,16 +55,25 @@ export const createMp4Clip = async (
     
     console.log(`✅ MP4 created: ${(mp4Blob.size / (1024 * 1024)).toFixed(2)}MB`);
 
-    // Download to local PC
+    // Download — use iOS-safe method
     const localFileName = `clip_${timestamp.replace(/:/g, '-')}_${durSec}s.mp4`;
     const downloadUrl = URL.createObjectURL(mp4Blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = localFileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+    if (isIOS) {
+      // iOS Safari: open in new tab (auto-download not supported)
+      window.open(downloadUrl, '_blank');
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+    } else {
+      // All other browsers: direct download
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = localFileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(downloadUrl), 100);
+    }
 
     // Upload to S3
     const s3FileName = `clip_${timestamp.replace(/:/g, '-')}_${durSec}s_${Date.now()}.mp4`;
