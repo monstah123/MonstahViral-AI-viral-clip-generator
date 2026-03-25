@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   // Load history on mount
@@ -240,7 +241,8 @@ const App: React.FC = () => {
 
   const handleDeleteProject = async (projKey: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!confirm('Are you sure you want to delete this project? This will remove the video and analysis from AWS.')) return;
+    // Use in-app confirmation instead of window.confirm() which blinks on Chrome/Mac
+    setPendingDeleteKey(null); // Close the confirm UI
 
     try {
       // 1. First, we need to find the video URL to delete the video too
@@ -264,11 +266,13 @@ const App: React.FC = () => {
         setProject(null);
       }
 
-      loadHistory();
+      // 5. Show success BEFORE reloading history (prevents re-render blink)
       alert('Project deleted successfully from AWS.');
-    } catch (err) {
+      loadHistory();
+    } catch (err: any) {
       console.error('Delete failed:', err);
-      alert('Partial delete: Error removing files from AWS.');
+      // Show the real error — common cause is missing DELETE in S3 CORS
+      alert(`❌ Delete failed: ${err?.message || 'Unknown error'}\n\nIf this says "Access Denied", add DELETE to your S3 CORS allowed methods.`);
     }
   };
 
@@ -581,12 +585,25 @@ Export Time: ${new Date().toLocaleString()}
                                   )}
                                 </div>
                                 
-                                <button 
-                                  onClick={(e) => handleDeleteProject(s3Key, e)}
-                                  className="p-2 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex-shrink-0"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                {pendingDeleteKey === s3Key ? (
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteProject(s3Key, e); }}
+                                      className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black rounded-lg transition-all"
+                                    >YES</button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setPendingDeleteKey(null); }}
+                                      className="px-2 py-1 bg-zinc-700 hover:bg-zinc-600 text-white text-[9px] font-black rounded-lg transition-all"
+                                    >NO</button>
+                                  </div>
+                                ) : (
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setPendingDeleteKey(s3Key); }}
+                                    className="p-2 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex-shrink-0"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
                               
                               <button 

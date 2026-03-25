@@ -185,21 +185,50 @@ export async function createMP4Clip(
   };
 
   try {
-    // ─── THE "UNIVERSAL COMPATIBILITY" COMMAND ───
-    const args = [
-      '-i', inputName,
-      '-ss', startTime.toString(),
-      '-t', duration.toString(),
-      ...(vf ? ['-vf', vf] : []),
-      '-c:v', 'libx264',
-      '-preset', 'ultrafast',
-      '-crf', '23',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', 'faststart',
-      'output.mp4'
-    ];
+    // ─── QUICKTIME-COMPATIBLE CLIP COMMAND (FFmpeg WASM optimized) ───
+    // -ss BEFORE -i = fast keyframe seek (10-50x faster than post-seek)
+    const isComplexFilter = vf && vf.includes('[');
+
+    let args: string[];
+
+    if (isComplexFilter) {
+      // Complex filter (e.g. vertical_blur) needs explicit output mapping
+      args = [
+        '-ss', startTime.toString(),
+        '-i', inputName,
+        '-t', duration.toString(),
+        '-filter_complex', vf!,
+        '-map', '0:a?',           // Map audio if available (optional)
+        '-c:v', 'libx264',
+        '-profile:v', 'baseline',
+        '-level', '3.0',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', 'faststart',
+        'output.mp4'
+      ];
+    } else {
+      // Simple filter or no filter — fast path
+      args = [
+        '-ss', startTime.toString(),
+        '-i', inputName,
+        '-t', duration.toString(),
+        ...(vf ? ['-vf', vf] : []),
+        '-c:v', 'libx264',
+        '-profile:v', 'baseline',
+        '-level', '3.0',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', 'faststart',
+        'output.mp4'
+      ];
+    }
 
     await ff.exec(args);
     const data = await ff.readFile('output.mp4');
