@@ -139,11 +139,9 @@ function buildVideoFilter(format: ClipFormat): string | null {
     case 'vertical_crop_right':
       return 'crop=ih*9/16:ih:iw-ih*9/16:0,scale=1080:1920';
     case 'vertical_blur':
-      // Complex filter for blurred padding: 
-      // 1. Scale background to 1080x1920 (ignoring aspect) & blur it
-      // 2. Scale foreground to fit 1080 width & center it
-      // 3. Overlay the foreground on the background
-      return '[0:v]scale=1080:1920,boxblur=20:10[bg];[0:v]scale=1080:-1[fg];[bg][fg]overlay=y=(H-h)/2';
+      // Blurred background fills 9:16, foreground fits inside preserving aspect ratio.
+      // Two-pass: trim first (fast), then apply this filter on the small clip.
+      return '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:3[bg];[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2';
     case 'vertical_pad':
       return 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black';
     case 'square':
@@ -164,10 +162,10 @@ export async function createMP4Clip(
   const ff = await loadFFmpeg(onProgress);
   const duration = endTime - startTime;
 
-  onProgress?.('Reading video data...');
+  onProgress?.('📥 Step 1/3 — Reading video...');
   const ext = typeof videoFile === 'string' ? 'mp4' : (videoFile.name.split('.').pop()?.toLowerCase() || 'mp4');
   const inputName = `input.${ext}`;
-  
+
   try {
     const fileContent = await fetchFile(videoFile);
     await ff.writeFile(inputName, fileContent);
@@ -177,64 +175,108 @@ export async function createMP4Clip(
   }
 
   const vf = buildVideoFilter(format);
-  onProgress?.(format === 'original' ? 'Processing video...' : `Converting to ${CLIP_FORMATS.find(f => f.id === format)?.label}...`);
+  const isComplexFilter = vf && vf.includes('[');
 
   const cleanup = async () => {
     try { await ff!.deleteFile(inputName); } catch {}
+    try { await ff!.deleteFile('trimmed.mp4'); } catch {}
     try { await ff!.deleteFile('output.mp4'); } catch {}
   };
 
+  // Per-step watchdog — rejects the promise if FFmpeg stalls
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  const makeWatchdog = (minutes: number) =>
+    new Promise<never>((_, reject) => {
+      watchdogTimer = setTimeout(
+        () => reject(new Error(`Step timed out after ${minutes} min. Try a shorter clip.`)),
+        minutes * 60 * 1000
+      );
+    });
+  const clearWatchdog = () => {
+    if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+  };
+
   try {
-    // ─── QUICKTIME-COMPATIBLE CLIP COMMAND (FFmpeg WASM optimized) ───
-    // -ss BEFORE -i = fast keyframe seek (10-50x faster than post-seek)
-    const isComplexFilter = vf && vf.includes('[');
-
-    let args: string[];
-
     if (isComplexFilter) {
-      // Complex filter (e.g. vertical_blur) needs explicit output mapping
-      args = [
-        '-ss', startTime.toString(),
-        '-i', inputName,
-        '-t', duration.toString(),
-        '-filter_complex', vf!,
-        '-map', '0:a?',           // Map audio if available (optional)
-        '-c:v', 'libx264',
-        '-profile:v', 'baseline',
-        '-level', '3.0',
-        '-preset', 'ultrafast',
-        '-crf', '23',
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-movflags', 'faststart',
-        'output.mp4'
-      ];
+      // ── TWO-PASS for complex filters (e.g. vertical_blur) ─────────────────
+      // Pass 1: Instant trim via codec copy — no re-encoding of the full file
+      onProgress?.('✂️ Step 2/3 — Trimming clip...');
+      await Promise.race([
+        ff.exec([
+          '-ss', startTime.toString(),
+          '-i', inputName,
+          '-t', duration.toString(),
+          '-c', 'copy',
+          '-avoid_negative_ts', 'make_zero',
+          'trimmed.mp4',
+        ]),
+        makeWatchdog(2),
+      ]);
+      clearWatchdog();
+
+      // Pass 2: Apply blur filter only on the tiny trimmed clip
+      onProgress?.('🌫️ Step 3/3 — Applying Monstah Blur...');
+      await Promise.race([
+        ff.exec([
+          '-i', 'trimmed.mp4',
+          '-filter_complex', vf!,
+          '-map', '0:a?',
+          '-c:v', 'libx264',
+          '-profile:v', 'baseline',
+          '-level', '3.0',
+          '-preset', 'ultrafast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-movflags', 'faststart',
+          'output.mp4',
+        ]),
+        makeWatchdog(4),
+      ]);
+      clearWatchdog();
+
     } else {
-      // Simple filter or no filter — fast path
-      args = [
-        '-ss', startTime.toString(),
-        '-i', inputName,
-        '-t', duration.toString(),
-        ...(vf ? ['-vf', vf] : []),
-        '-c:v', 'libx264',
-        '-profile:v', 'baseline',
-        '-level', '3.0',
-        '-preset', 'ultrafast',
-        '-crf', '23',
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-movflags', 'faststart',
-        'output.mp4'
-      ];
+      // ── SINGLE-PASS for simple/no filters ────────────────────────────────
+      const label = CLIP_FORMATS.find(f => f.id === format)?.label || format;
+      onProgress?.(
+        format === 'original'
+          ? '⚙️ Step 2/2 — Encoding clip...'
+          : `⚙️ Step 2/2 — Converting to ${label}...`
+      );
+      await Promise.race([
+        ff.exec([
+          '-ss', startTime.toString(),
+          '-i', inputName,
+          '-t', duration.toString(),
+          ...(vf ? ['-vf', vf] : []),
+          '-c:v', 'libx264',
+          '-profile:v', 'baseline',
+          '-level', '3.0',
+          '-preset', 'ultrafast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-s', '1080x1920',
+          '-movflags', 'faststart',
+          'output.mp4',
+        ]),
+        makeWatchdog(4),
+      ]);
+      clearWatchdog();
     }
 
-    await ff.exec(args);
+    onProgress?.('✅ Finalizing download...');
     const data = await ff.readFile('output.mp4');
     await cleanup();
-    return new Blob([data instanceof Uint8Array ? data : new Uint8Array(data as any)], { type: 'video/mp4' });
+    return new Blob(
+      [data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer)],
+      { type: 'video/mp4' }
+    );
+
   } catch (err) {
+    clearWatchdog();
     await cleanup();
     console.error('Clipping failed:', err);
     throw err;

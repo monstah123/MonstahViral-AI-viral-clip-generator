@@ -57,12 +57,15 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
                     text: `Analyze this video for potential viral social media clips (TikTok, Reels, Shorts). 
                     The attention economy is competitive. Identify 6 to 10 "Ultra-High Retention" moments.
                     
+                    CRITICAL: Each clip MUST be between 15 and 60 seconds long. Short clips under 15 seconds perform poorly.
+                    Choose startTime and endTime to capture the FULL arc of each viral moment (setup + payoff).
+                    
                     Return only a JSON array of objects with these fields:
                     - startTime (string format "MM:SS")
-                    - endTime (string format "MM:SS")
+                    - endTime (string format "MM:SS") — must be at least 15 seconds after startTime
                     - title (catchy viral title)
                     - description (the neurological trigger why this is viral)
-                    - score (0-100 viral potential score)
+                    - score (viral potential score, MUST be between 80 and 95 — only include moments with genuine high-retention potential)
                     - tags (array of 3 trending hashtags)
 
                     RETURN ONLY THE RAW JSON ARRAY, NO MARKDOWN TAGS.`
@@ -80,7 +83,7 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
               temperature: 0.7,
               topK: 40,
               topP: 0.95,
-              maxOutputTokens: 2048,
+              maxOutputTokens: 8192,
             }
           })
         });
@@ -119,9 +122,21 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
         try {
           parsedShots = JSON.parse(cleanedJson);
         } catch (parseErr) {
-          console.error('❌ JSON parse failed. Raw text was:', text);
-          lastErrorMessage = `Gemini returned invalid JSON. Raw: ${text.substring(0, 200)}`;
-          continue; // Try next model
+          // Gemini truncated the JSON — try to recover complete objects from the partial response
+          console.warn('⚠️ JSON truncated, attempting recovery...');
+          try {
+            const objectMatches = cleanedJson.match(/\{[^{}]*\}/g);
+            if (objectMatches && objectMatches.length > 0) {
+              parsedShots = objectMatches.map(s => JSON.parse(s)).filter(Boolean);
+              console.log(`♻️ Recovered ${parsedShots.length} shots from truncated response`);
+            } else {
+              throw new Error('No recoverable shots in truncated response');
+            }
+          } catch {
+            console.error('❌ JSON parse failed. Raw text was:', text);
+            lastErrorMessage = `Gemini returned invalid JSON. Raw: ${text.substring(0, 200)}`;
+            continue;
+          }
         }
 
         if (!Array.isArray(parsedShots) || parsedShots.length === 0) {
@@ -133,14 +148,14 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
         const shots: MonstahShot[] = parsedShots.map((shot: any, index: number) => {
           const startSec = timestampToSeconds(shot.startTime);
           const endSec = timestampToSeconds(shot.endTime);
-          const durationSec = Math.max(5, endSec - startSec);
+          const durationSec = Math.max(15, endSec - startSec); // Minimum 15s for viral clips
 
           return {
             id: `shot_${Date.now()}_${index}`,
             timestamp: shot.startTime,
             duration: `${durationSec}s`,
             trigger: shot.description || shot.title || "Viral Hook Identified",
-            score: shot.score || 85,
+            score: Math.min(95, Math.max(80, shot.score || 85)), // Clamp to 80-95 viral range
             tags: shot.tags || ["#viral", "#trending", "#2026"]
           };
         });
