@@ -154,10 +154,14 @@ const App: React.FC = () => {
       
     } catch (err: any) {
       console.error('Upload/Analysis error:', err);
-      if (err.message.includes('fetch')) {
-        alert('👹 MONSTAH ERROR: AWS Upload Failed!\n\nThis is usually because your S3 CORS is missing the "PUT" method. Check your S3 settings!');
+      // Show the REAL error — don't mask Gemini errors as AWS errors
+      const msg = err?.message || 'Unknown error';
+      if (msg.includes('AWS') || msg.includes('S3') || msg.includes('CORS')) {
+        alert(`👹 AWS ERROR:\n\n${msg}`);
+      } else if (msg.includes('AI ARCHITECT')) {
+        alert(`❌ ${msg}`);
       } else {
-        alert(`❌ Error: ${err.message}`);
+        alert(`❌ Upload/Analysis Failed:\n\n${msg}\n\nCheck the browser Console (F12 > Console) for full details.`);
       }
     } finally {
       setIsProcessing(false);
