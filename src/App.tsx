@@ -9,6 +9,7 @@ import { uploadToS3, listItemsFromS3, deleteFromS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
 import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Camera } from 'lucide-react';
 import { captureThumbnail } from './utils/thumbnailUtils';
+import { playDuolingoHoverSound } from './utils/soundUtils';
 
 const App: React.FC = () => {
   const [showLanding, setShowLanding] = useState(true);
@@ -322,35 +323,47 @@ Export Time: ${new Date().toLocaleString()}
   const clipAndUploadShot = async (shot: MonstahShot): Promise<VideoClip | null> => {
     if (!project) return null;
     setIsClipping(true);
-    
+
     try {
-      const durSec = parseInt(shot.duration.replace('s', '')) || 15;
-      
-      const clipUrl = await createMp4Clip(
-        project.originalVideoUrl,
-        shot.timestamp,
-        shot.duration,
-        shot.trigger || shot.description || "",
-        'vertical_crop' // Default to our elite 2026 zoom
+      const { createMP4Clip, parseTimestamp, parseDuration } = await import('./lib/ffmpegClip');
+
+      const startTime = parseTimestamp(shot.timestamp);
+      const durSec = parseDuration(shot.duration || '15s');
+      const endTime = startTime + durSec;
+
+      const source: File | string = videoFile || project.originalVideoUrl || '';
+
+      const clipBlob = await createMP4Clip(
+        source,
+        startTime,
+        endTime,
+        undefined,
+        'vertical_blur' // Default: Monstah Blur for sidebar clips
       );
 
-      if (!clipUrl) {
-        throw new Error('Failed to create clip');
-      }
-      
+      // Download locally
+      const url = URL.createObjectURL(clipBlob);
+      const filename = `monstah_${shot.timestamp.replace(/:/g, '-')}_${durSec}s.mp4`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+      alert(`✅ Clip Downloaded!\n\nTimestamp: ${shot.timestamp}\nDuration: ${durSec}s\nFormat: Monstah Blur (1080×1920)`);
+
       const newClip: VideoClip = {
         id: `clip_${Date.now()}`,
         originalShotId: shot.id,
         timestamp: shot.timestamp,
         duration: shot.duration,
-        s3Url: clipUrl,
+        s3Url: '',
         metadata: {
           shotId: shot.id,
           timestamp: shot.timestamp,
-          startTime: (() => {
-            const [min, sec] = shot.timestamp.split(':').map(Number);
-            return min * 60 + sec;
-          })(),
+          startTime,
           duration: durSec,
           trigger: shot.trigger,
           description: shot.description,
@@ -365,16 +378,10 @@ Export Time: ${new Date().toLocaleString()}
         },
         createdAt: new Date().toISOString()
       };
-      
+
       setGeneratedClips(prev => [...prev, newClip]);
-      
-      setProject({
-        ...project,
-        clips: [...(project.clips || []), newClip]
-      });
-      
-      alert(`✅ Clip Created!\n\nTimestamp: ${shot.timestamp}\nDuration: ${shot.duration}\n\nYou can download it from the shot card!`);
-      
+      setProject({ ...project, clips: [...(project.clips || []), newClip] });
+
       return newClip;
     } catch (err: any) {
       console.error('Clip error:', err);
@@ -384,6 +391,7 @@ Export Time: ${new Date().toLocaleString()}
       setIsClipping(false);
     }
   };
+
 
   const handleCreateClip = async () => {
     if (!selectedShot) {
@@ -673,7 +681,7 @@ Export Time: ${new Date().toLocaleString()}
                   <h4 className="text-lg font-bold mb-4">🎬 Generated Clips</h4>
                   <div className="space-y-3">
                     {generatedClips.map((clip) => (
-                      <div key={clip.id} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg">
+                      <div key={clip.id} onMouseEnter={playDuolingoHoverSound} className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-lg transition-colors hover:bg-zinc-800 hover:border-blue-500/30 border border-transparent cursor-pointer">
                         <div>
                           <p className="font-medium">{clip.timestamp} - {clip.duration}</p>
                           <p className="text-sm text-gray-400">Created: {new Date(clip.createdAt).toLocaleTimeString()}</p>

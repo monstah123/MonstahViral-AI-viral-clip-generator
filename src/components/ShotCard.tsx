@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { createMP4Clip, parseTimestamp, parseDuration, ClipFormat, CLIP_FORMATS } from '../lib/ffmpegClip';
 import { MonstahShot } from '../types';
+import { playDuolingoHoverSound } from '../utils/soundUtils';
 
 interface ShotCardProps {
   shot: MonstahShot;
@@ -109,6 +110,7 @@ export default function ShotCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
       onClick={() => onSelect(shot)}
+      onMouseEnter={playDuolingoHoverSound}
       className={`relative bg-zinc-900/40 p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 group cursor-pointer ${
         isSelected
           ? 'border-blue-500 ring-1 ring-blue-500 shadow-2xl shadow-blue-500/10'

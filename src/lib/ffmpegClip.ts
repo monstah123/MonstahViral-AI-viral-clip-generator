@@ -258,7 +258,8 @@ export async function createMP4Clip(
           '-pix_fmt', 'yuv420p',
           '-c:a', 'aac',
           '-b:a', '128k',
-          '-s', '1080x1920',
+          // Only force output size when a format filter is applied. 'original' keeps source dims.
+          ...(vf ? ['-s', '1080x1920'] : []),
           '-movflags', 'faststart',
           'output.mp4',
         ]),
@@ -270,10 +271,11 @@ export async function createMP4Clip(
     onProgress?.('✅ Finalizing download...');
     const data = await ff.readFile('output.mp4');
     await cleanup();
-    return new Blob(
-      [data instanceof Uint8Array ? data : new Uint8Array(data as ArrayBuffer)],
-      { type: 'video/mp4' }
-    );
+    // Copy into a plain ArrayBuffer so TypeScript's strict Blob check passes (SharedArrayBuffer workaround)
+    const rawBuffer: ArrayBuffer = data instanceof Uint8Array
+      ? data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+      : new ArrayBuffer(0);
+    return new Blob([rawBuffer], { type: 'video/mp4' });
 
   } catch (err) {
     clearWatchdog();
