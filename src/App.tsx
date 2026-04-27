@@ -116,17 +116,8 @@ const App: React.FC = () => {
       
       // 3. AI ANALYSIS (80% - 100%)
       setAnalysisProgress(85);
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = (reader.result as string).split(',')[1];
-          resolve(result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
       
-      const shots = await analyzeVideoForShots(base64, file.type);
+      const shots = await analyzeVideoForShots(file);
       setAnalysisProgress(100);
       const videoUrl = URL.createObjectURL(file);
       
@@ -147,7 +138,7 @@ const App: React.FC = () => {
       await saveProjectToAWS(newProject, awsUrl);
       loadHistory(); // Refresh history
       
-      if (shots.length > 0) {
+      if (shots && shots.length > 0) {
         setSelectedShot(shots[0]);
         setTimeout(() => seekToTimestamp(shots[0].timestamp), 500);
       }
@@ -545,7 +536,12 @@ Export Time: ${new Date().toLocaleString()}
                               onClick={() => loadProjectFromS3(s3Key)}
                             >
                               {item.thumbnailUrl ? (
-                                <img src={item.thumbnailUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Preview"/>
+                                <img 
+                                  src={item.thumbnailUrl} 
+                                  crossOrigin="anonymous"
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                                  alt="Preview"
+                                />
                               ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-zinc-900">
                                   <Camera className="w-8 h-8 text-zinc-800" />
@@ -669,7 +665,14 @@ Export Time: ${new Date().toLocaleString()}
                   )}
                 </div>
                 {project.originalVideoUrl ? (
-                  <video ref={videoRef} key={project.originalVideoUrl} src={project.originalVideoUrl} controls className="w-full rounded-xl aspect-video bg-black" />
+                  <video 
+                    ref={videoRef} 
+                    key={project.originalVideoUrl} 
+                    src={project.originalVideoUrl} 
+                    crossOrigin="anonymous"
+                    controls 
+                    className="w-full rounded-xl aspect-video bg-black" 
+                  />
                 ) : (
                   <div className="w-full aspect-video bg-black rounded-xl flex items-center justify-center">
                     <p className="text-gray-500">Video not available</p>

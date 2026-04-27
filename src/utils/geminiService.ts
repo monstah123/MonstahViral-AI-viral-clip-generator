@@ -17,20 +17,76 @@ const timestampToSeconds = (ts: string): number => {
   return 0;
 };
 
-export const analyzeVideoForShots = async (base64Video: string, mimeType: string): Promise<MonstahShot[]> => {
+export const analyzeVideoForShots = async (videoFile: File): Promise<MonstahShot[]> => {
   if (!GEMINI_API_KEY) {
     console.error('❌ CRITICAL: VITE_GOOGLE_API_KEY is missing!');
     throw new Error('AI Architects are offline! Please check your VITE_GOOGLE_API_KEY in .env.local');
   }
 
-  const videoSizeMB = (base64Video.length / 1024 / 1024);
+  const videoSizeMB = (videoFile.size / 1024 / 1024);
   console.log('🚀 Initializing MONSTAHVIRAL ARCHITECT 3.0...');
-  console.log('🎬 Analyzing video with Gemini AI...');
+  console.log('🎬 Uploading video to Gemini AI...');
   console.log('📡 Key Verification (First 10):', (GEMINI_API_KEY || '').substring(0, 10), '...');
-  console.log('Video size:', videoSizeMB.toFixed(2), 'MB (base64)');
+  console.log('Video size:', videoSizeMB.toFixed(2), 'MB');
 
-  if (videoSizeMB > 18) {
-    console.warn('⚠️ CRITICAL WARNING: Video payload is near or over 20MB. Standard API requests WILL fail. Try a smaller video clip (<10MB).');
+  if (videoSizeMB > 2000) {
+    throw new Error('Video is larger than 2GB, which exceeds the maximum limit supported by Gemini.');
+  }
+
+  let uploadResult;
+  try {
+    const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`;
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol': 'raw',
+        'X-Goog-Upload-Command': 'upload',
+        'X-Goog-Upload-File-Name': videoFile.name.replace(/[^a-zA-Z0-9.\-_]/g, ''),
+        'X-Goog-Upload-Header-Content-Type': videoFile.type || 'video/mp4'
+      },
+      body: videoFile
+    });
+    
+    if (!uploadRes.ok) {
+      const errText = await uploadRes.text();
+      throw new Error(`Upload failed: ${uploadRes.status} ${errText}`);
+    }
+    
+    uploadResult = await uploadRes.json();
+    if (!uploadResult?.file?.uri) {
+      throw new Error('Gemini upload response missing file URI');
+    }
+    console.log('✅ Upload successful. File URI:', uploadResult.file.uri);
+  } catch (error: any) {
+    console.error('❌ Upload to Gemini failed:', error.message);
+    throw new Error(`Failed to upload video to Gemini: ${error.message}`);
+  }
+
+  // Poll for processing completion
+  const fileName = uploadResult.file.name;
+  if (!fileName) throw new Error('Gemini upload response missing file name');
+  let isReady = false;
+  let pollAttempts = 0;
+  
+  while (!isReady && pollAttempts < 60) {
+    pollAttempts++;
+    console.log(`⏳ Waiting for Gemini to process video... (Attempt ${pollAttempts})`);
+    const checkRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${GEMINI_API_KEY}`);
+    const checkData = await checkRes.json();
+    
+    if (checkData?.state === 'ACTIVE') {
+      isReady = true;
+      console.log('✅ Video processing complete!');
+    } else if (checkData?.state === 'FAILED') {
+      throw new Error('Gemini failed to process the video. It might be unsupported or corrupted.');
+    } else {
+      console.log(`State: ${checkData?.state || 'UNKNOWN'}`);
+      await new Promise(r => setTimeout(r, 5000)); // wait 5 seconds before next poll
+    }
+  }
+
+  if (!isReady) {
+    throw new Error('Video processing timed out after 5 minutes.');
   }
 
   let lastErrorMessage = 'No models responded successfully. This is usually due to an invalid project setup or regional restriction.';
@@ -71,9 +127,9 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
                     RETURN ONLY THE RAW JSON ARRAY, NO MARKDOWN TAGS.`
                   },
                   {
-                    inlineData: {
-                      mimeType: mimeType || 'video/mp4',
-                      data: base64Video
+                    fileData: {
+                      mimeType: videoFile.type || 'video/mp4',
+                      fileUri: uploadResult.file.uri
                     }
                   }
                 ]
@@ -145,20 +201,26 @@ export const analyzeVideoForShots = async (base64Video: string, mimeType: string
           continue;
         }
 
-        const shots: MonstahShot[] = parsedShots.map((shot: any, index: number) => {
-          const startSec = timestampToSeconds(shot.startTime);
-          const endSec = timestampToSeconds(shot.endTime);
-          const durationSec = Math.max(15, endSec - startSec); // Minimum 15s for viral clips
+        const shots: MonstahShot[] = parsedShots
+          .filter((s: any) => s && typeof s === 'object')
+          .map((shot: any, index: number) => {
+            // Safety: Ensure startTime and endTime exist before parsing
+            const startStr = shot.startTime || "00:00";
+            const endStr = shot.endTime || "00:15";
+            
+            const startSec = timestampToSeconds(startStr);
+            const endSec = timestampToSeconds(endStr);
+            const durationSec = Math.max(15, endSec - startSec); // Minimum 15s for viral clips
 
-          return {
-            id: `shot_${Date.now()}_${index}`,
-            timestamp: shot.startTime,
-            duration: `${durationSec}s`,
-            trigger: shot.description || shot.title || "Viral Hook Identified",
-            score: Math.min(95, Math.max(80, shot.score || 85)), // Clamp to 80-95 viral range
-            tags: shot.tags || ["#viral", "#trending", "#2026"]
-          };
-        });
+            return {
+              id: `shot_${Date.now()}_${index}`,
+              timestamp: startStr,
+              duration: `${durationSec}s`,
+              trigger: shot.description || shot.title || "Viral Hook Identified",
+              score: Math.min(95, Math.max(80, shot.score || 85)), // Clamp to 80-95 viral range
+              tags: Array.isArray(shot.tags) ? shot.tags : ["#viral", "#trending", "#2026"]
+            };
+          });
 
         console.log(`✅ Analysis complete. Found ${shots.length} banger clips!`);
         return shots;

@@ -50,7 +50,12 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      onUpload(e.target.files[0]);
+      const file = e.target.files[0];
+      if (file.size > 2 * 1024 * 1024 * 1024) {
+        alert("File is too large! Maximum allowed size is 2GB.");
+        return;
+      }
+      onUpload(file);
     }
   };
 
@@ -59,7 +64,12 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onUpload(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (file.size > 2 * 1024 * 1024 * 1024) {
+        alert("File is too large! Maximum allowed size is 2GB.");
+        return;
+      }
+      onUpload(file);
     }
   };
 
@@ -176,7 +186,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
             {/* Formats info */}
             <p className="text-zinc-600 text-sm font-mono tracking-widest flex items-center gap-2 uppercase">
-              MP4 • MOV • AVI • UNLIMITED
+              MP4 • MOV • AVI • UP TO 2GB
             </p>
           </div>
         </div>
