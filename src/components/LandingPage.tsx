@@ -157,7 +157,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         {/* Badge */}
         <div className="relative z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm text-xs sm:text-sm text-gray-400 mb-8 font-mono text-center">
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block flex-shrink-0"></span>
-          Powered by Google Gemini AI · AWS S3
+          Powered by Google Gemini 3 Flash · AWS S3
         </div>
 
         {/* Main Headline */}
@@ -273,7 +273,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
 
       {/* Footer */}
       <footer className="border-t border-zinc-800 py-8 px-4 text-center text-gray-600 text-sm font-mono">
-        MONSTAHVIRAL · AI-POWERED VIRAL CLIP GENERATOR · BUILT ON AWS + GEMINI
+        MONSTAHVIRAL · AI-POWERED VIRAL CLIP GENERATOR · BUILT ON AWS + GEMINI 3
       </footer>
 
       <style>{`

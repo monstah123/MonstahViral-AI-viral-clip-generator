@@ -127,21 +127,27 @@ export const analyzeVideoForShots = async (
   onProgress?.('🧠 AI is identifying viral moments...', 95);
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Upgraded to Gemini 3 Flash (2026 standard) to fix 404 and ensure high-fidelity analysis
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
     
+    const prompt = `You are a world-class Viral Architect and Social Media Strategist. 
+Analyze this video for potential viral social media clips (TikTok, Reels, Shorts). 
+Identify 6 to 10 high-impact segments that possess maximum retention potential.
+
+For each segment, provide:
+- Catchy, high-CTR title (max 60 characters)
+- Detailed "Neurological Trigger" analysis: explain EXACTLY what happens (audio/visual) that makes this moment viral. Use punchy, engaging language.
+- Accurate startTime and endTime (format MM:SS)
+- Virality Score (80-99)
+- 5 trending, high-volume hashtags
+
+Return ONLY a JSON array of objects with these keys:
+startTime, endTime, title, description, score, tags.
+
+DO NOT include any conversational text or markdown code blocks. RETURN ONLY THE RAW JSON ARRAY.`;
+
     const result = await model.generateContent([
-      {
-        text: `Analyze this video for potential viral social media clips (TikTok, Reels, Shorts). 
-               Identify 6 to 10 high-impact segments.
-               Return only a JSON array of objects with:
-               - startTime (format "MM:SS")
-               - endTime (format "MM:SS")
-               - title (catchy)
-               - description (why it's viral)
-               - score (80-95)
-               - tags (array of 3 hashtags)
-               RETURN ONLY THE RAW JSON ARRAY.`
-      },
+      { text: prompt },
       {
         fileData: {
           mimeType: videoFile.type || 'video/mp4',
@@ -151,8 +157,22 @@ export const analyzeVideoForShots = async (
     ]);
 
     const text = result.response.text();
-    const cleanedJson = text.replace(/```json\n?|\n?```/g, '').trim();
-    const parsedShots = JSON.parse(cleanedJson);
+    
+    // Robust JSON extraction to handle model inconsistencies
+    const extractJSON = (rawText: string) => {
+      try {
+        const start = rawText.indexOf('[');
+        const end = rawText.lastIndexOf(']');
+        if (start === -1 || end === -1) throw new Error('No JSON array found in response');
+        return JSON.parse(rawText.substring(start, end + 1));
+      } catch (e) {
+        // Fallback for markdown blocks
+        const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
+        return JSON.parse(cleaned);
+      }
+    };
+
+    const parsedShots = extractJSON(text);
 
     return parsedShots.map((shot: any, index: number) => {
       const startSec = timestampToSeconds(shot.startTime);
@@ -163,11 +183,15 @@ export const analyzeVideoForShots = async (
         duration: `${Math.max(1, endSec - startSec)}s`,
         trigger: shot.description || shot.title,
         score: shot.score || 85,
-        tags: shot.tags || ['#viral']
+        tags: shot.tags || ['#viral', '#trending', '#monstah']
       };
     });
   } catch (error: any) {
     console.error('SDK Analysis failed:', error);
-    throw new Error(`AI ARCHITECT ERROR: ${error.message}`);
+    // Specifically handle the 404 or other API errors
+    if (error.message?.includes('404')) {
+      throw new Error('AI ARCHITECT ERROR: Model endpoint mismatch. Please contact support to sync AI versions.');
+    }
+    throw new Error(`AI ARCHITECT ERROR: [GoogleGenerativeAI Error]: ${error.message}`);
   }
 };
