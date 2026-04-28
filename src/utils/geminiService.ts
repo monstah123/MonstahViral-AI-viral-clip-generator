@@ -51,9 +51,9 @@ async function uploadToGemini(
   if (!sessionUrl) throw new Error('Gemini did not return a resumable upload URL');
 
   // ── Phase 2: Upload the file body with an AbortController timeout ─────────
-  // Allow up to 45 minutes for very large files (2GB) on standard connections
+  // Allow up to 90 minutes for very large files on slow connections
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45 * 60 * 1000);
+  const timeoutId = setTimeout(() => controller.abort(), 90 * 60 * 1000);
 
   onProgress?.(5); // started uploading
   let uploadRes: Response;
@@ -126,8 +126,8 @@ export const analyzeVideoForShots = async (
   }
 
   // ── Step 2: Poll until Gemini finishes processing the video ──────────────
-  // Large files (900MB+) can take 10-20 min to process — allow up to 30 min
-  const MAX_POLL = 360; // 360 × 5s = 30 min
+  // Large files can take a long time to process — allow up to 60 min
+  const MAX_POLL = 720; // 720 × 5s = 60 min
   let isReady = false;
   let pollAttempts = 0;
 
@@ -158,8 +158,7 @@ export const analyzeVideoForShots = async (
 
   if (!isReady) {
     throw new Error(
-      'Gemini video processing timed out after 30 minutes. The video may be too long or complex. ' +
-      'Try splitting it into shorter segments if this persists.'
+      'Gemini video processing timed out after 60 minutes. The video may be too long or complex.'
     );
   }
 
