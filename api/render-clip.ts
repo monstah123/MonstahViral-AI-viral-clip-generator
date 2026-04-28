@@ -9,7 +9,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegBin: string = require('ffmpeg-static');
 
-export const config = { maxDuration: 60 }; // 60 s — upgrade Vercel plan for longer allowance
+export const config = { maxDuration: 300 }; // 300s (5 min) — max for Vercel Pro
 
 // ─── AWS ──────────────────────────────────────────────────────────────────────
 const BUCKET = process.env.VITE_AWS_BUCKET_NAME!;
@@ -46,7 +46,7 @@ function buildFilter(format: string): FilterResult {
 }
 
 // ─── FFmpeg runner ────────────────────────────────────────────────────────────
-function runFFmpeg(args: string[], timeoutMs = 55_000): Promise<void> {
+function runFFmpeg(args: string[], timeoutMs = 280_000): Promise<void> {
   return new Promise((resolve, reject) => {
     console.log('[FFmpeg]', [ffmpegBin, ...args].join(' '));
     const proc = spawn(ffmpegBin, args, { stdio: ['ignore', 'pipe', 'pipe'] });

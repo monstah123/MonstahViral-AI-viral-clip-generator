@@ -39,7 +39,7 @@ export async function renderClip(opts: RenderOptions): Promise<Blob> {
       console.log('[renderClip] Using server-side render for key:', s3Key);
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 90_000); // 90 s client timeout
+      const timeout = setTimeout(() => controller.abort(), 300_000); // 300 s client timeout (5 min)
 
       const response = await fetch('/api/render-clip', {
         method: 'POST',
