@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { MonstahShot } from '../types';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
