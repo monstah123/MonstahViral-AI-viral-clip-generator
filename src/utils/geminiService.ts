@@ -1,11 +1,8 @@
+import { GoogleGenerativeAI } from '@google/genai';
 import { MonstahShot } from '../types';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
-
-const MODELS_TO_TRY = [
-  'gemini-1.5-flash',
-  'gemini-1.5-pro'
-];
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 /**
  * Helper to convert MM:SS to seconds for duration calculation
@@ -18,8 +15,6 @@ const timestampToSeconds = (ts: string): number => {
 
 /**
  * Upload a file to Gemini using the CHUNKED resumable upload protocol.
- * This is the "Gold Standard" for large files (900MB+).
- * It sends the file in 8MB pieces, which is much more stable than sending it all at once.
  */
 async function uploadToGeminiChunked(
   file: File,
@@ -27,7 +22,6 @@ async function uploadToGeminiChunked(
 ): Promise<{ uri: string; name: string }> {
   const uploadUrl = `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`;
 
-  // ── Step 1: Start the session ──────────────────────────────────────────
   const initRes = await fetch(uploadUrl, {
     method: 'POST',
     headers: {
@@ -48,7 +42,6 @@ async function uploadToGeminiChunked(
   const sessionUrl = initRes.headers.get('X-Goog-Upload-URL');
   if (!sessionUrl) throw new Error('Gemini did not return a resumable upload URL');
 
-  // ── Step 2: Upload in 8MB chunks ────────────────────────────────────────
   const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
   let offset = 0;
 
@@ -56,8 +49,6 @@ async function uploadToGeminiChunked(
     const end = Math.min(offset + CHUNK_SIZE, file.size);
     const chunk = file.slice(offset, end);
     const isLast = end === file.size;
-
-    console.log(`📡 Uploading chunk: ${offset} - ${end} of ${file.size}`);
 
     const res = await fetch(sessionUrl, {
       method: 'POST',
@@ -74,8 +65,7 @@ async function uploadToGeminiChunked(
     }
 
     offset = end;
-    const pct = Math.round((offset / file.size) * 100);
-    onProgress?.(pct);
+    onProgress?.(Math.round((offset / file.size) * 100));
 
     if (isLast) {
       const finalResult = await res.json();
@@ -94,9 +84,6 @@ export const analyzeVideoForShots = async (
     throw new Error('AI Architects are offline! Please check your VITE_GOOGLE_API_KEY');
   }
 
-  const videoSizeMB = videoFile.size / 1024 / 1024;
-  console.log(`🚀 Analyzing ${videoSizeMB.toFixed(2)}MB video...`);
-
   // ── Step 1: Chunked Upload ─────────────────────────────────────────────
   onProgress?.('Uploading to Gemini AI (Chunked)...', 0);
   let fileRef: { uri: string; name: string };
@@ -105,7 +92,6 @@ export const analyzeVideoForShots = async (
       onProgress?.(`📡 Uploading to Gemini... ${pct}%`, Math.round(pct * 0.7));
     });
   } catch (error: any) {
-    console.error('❌ Chunked upload failed:', error.message);
     throw new Error(`Failed to upload video to Gemini: ${error.message}`);
   }
 
@@ -114,87 +100,74 @@ export const analyzeVideoForShots = async (
   
   const MAX_POLL = 720; // 60 minutes
   let pollAttempts = 0;
+  let isReady = false;
 
   while (pollAttempts < MAX_POLL) {
     pollAttempts++;
-    const elapsed = Math.round((pollAttempts * 5) / 60);
-    
-    // Heartbeat log so we know it's not frozen
-    console.log(`[Gemini Poll] Attempt ${pollAttempts} (${elapsed} min elapsed)`);
-
     const checkRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/${fileRef.name}?key=${GEMINI_API_KEY}`
     );
     const checkData = await checkRes.json();
 
     if (checkData?.state === 'ACTIVE') {
-      console.log('✅ Gemini processing complete!');
+      isReady = true;
       break; 
     } else if (checkData?.state === 'FAILED') {
-      throw new Error(`Gemini processing failed: ${JSON.stringify(checkData.error)}`);
+      throw new Error('Gemini processing failed.');
     }
 
     await new Promise(r => setTimeout(r, 5000));
-    // Keep progress bar moving slightly so user knows it's alive
-    const pollPct = Math.min(95, 75 + Math.floor((pollAttempts / MAX_POLL) * 20));
-    onProgress?.(`⏳ Gemini is processing... (${elapsed} min)`, pollPct);
+    onProgress?.(`⏳ Gemini is processing... (${Math.round((pollAttempts * 5) / 60)} min)`, 
+      Math.min(95, 75 + Math.floor((pollAttempts / MAX_POLL) * 20)));
   }
 
-  if (pollAttempts >= MAX_POLL) {
-    throw new Error('Gemini processing timed out after 60 minutes.');
-  }
+  if (!isReady) throw new Error('Gemini processing timed out.');
 
-  // ── Step 3: Prompting ────────────────────────────────────────────────────
+  // ── Step 3: AI Generation with Official SDK ─────────────────────────────
   onProgress?.('🧠 AI is identifying viral moments...', 95);
 
-  let lastError = '';
-  for (const model of MODELS_TO_TRY) {
-    try {
-      console.log(`📡 Prompting model: ${model}...`);
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: "Analyze this video for 6 to 10 viral clips (15-60s). Return JSON array of objects with startTime (MM:SS), endTime (MM:SS), title, description, score (80-95), and tags." },
-              { fileData: { mimeType: videoFile.type || 'video/mp4', fileUri: fileRef.uri } }
-            ]
-          }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-        })
-      });
-
-      if (!response.ok) {
-        lastError = await response.text();
-        continue;
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    const result = await model.generateContent([
+      {
+        text: `Analyze this video for potential viral social media clips (TikTok, Reels, Shorts). 
+               Identify 6 to 10 high-impact segments.
+               Return only a JSON array of objects with:
+               - startTime (format "MM:SS")
+               - endTime (format "MM:SS")
+               - title (catchy)
+               - description (why it's viral)
+               - score (80-95)
+               - tags (array of 3 hashtags)
+               RETURN ONLY THE RAW JSON ARRAY.`
+      },
+      {
+        fileData: {
+          mimeType: videoFile.type || 'video/mp4',
+          fileUri: fileRef.uri
+        }
       }
+    ]);
 
-      const data = await response.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) continue;
+    const text = result.response.text();
+    const cleanedJson = text.replace(/```json\n?|\n?```/g, '').trim();
+    const parsedShots = JSON.parse(cleanedJson);
 
-      const cleanedJson = text.replace(/```json\n?|\n?```/g, '').trim();
-      const parsedShots = JSON.parse(cleanedJson);
-
-      return parsedShots.map((shot: any, index: number) => {
-        const startSec = timestampToSeconds(shot.startTime);
-        const endSec = timestampToSeconds(shot.endTime);
-        return {
-          id: `shot_${Date.now()}_${index}`,
-          timestamp: shot.startTime,
-          duration: `${endSec - startSec}s`,
-          trigger: shot.description || shot.title,
-          score: shot.score || 85,
-          tags: shot.tags || ['#viral']
-        };
-      });
-    } catch (e: any) {
-      lastError = e.message;
-    }
+    return parsedShots.map((shot: any, index: number) => {
+      const startSec = timestampToSeconds(shot.startTime);
+      const endSec = timestampToSeconds(shot.endTime);
+      return {
+        id: `shot_${Date.now()}_${index}`,
+        timestamp: shot.startTime,
+        duration: `${Math.max(1, endSec - startSec)}s`,
+        trigger: shot.description || shot.title,
+        score: shot.score || 85,
+        tags: shot.tags || ['#viral']
+      };
+    });
+  } catch (error: any) {
+    console.error('SDK Analysis failed:', error);
+    throw new Error(`AI ARCHITECT ERROR: ${error.message}`);
   }
-
-  throw new Error(`AI analysis failed after trying all models. Last error: ${lastError}`);
 };
