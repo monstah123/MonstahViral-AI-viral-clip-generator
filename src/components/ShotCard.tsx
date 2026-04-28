@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { createMP4Clip, parseTimestamp, parseDuration, ClipFormat, CLIP_FORMATS } from '../lib/ffmpegClip';
+import { CLIP_FORMATS, ClipFormat } from '../lib/ffmpegClip';
+import { renderClip } from '../lib/renderClip';
 import { MonstahShot } from '../types';
 import { playDuolingoHoverSound } from '../utils/soundUtils';
 
@@ -11,17 +12,19 @@ interface ShotCardProps {
   isSelected: boolean;
   onSelect: (shot: MonstahShot) => void;
   videoFile: File | null;
+  s3VideoUrl?: string | null;
   originalVideoUrl?: string;
 }
 
-export default function ShotCard({
+const ShotCard: React.FC<ShotCardProps> = ({
   shot,
   index,
   isSelected,
   onSelect,
   videoFile,
+  s3VideoUrl,
   originalVideoUrl,
-}: ShotCardProps) {
+}) => {
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<ClipFormat>('original');
@@ -48,33 +51,29 @@ export default function ShotCard({
   };
 
   const handleDownloadClip = async () => {
-    if (!videoFile && !originalVideoUrl) {
+    const hasSource = !!(videoFile || s3VideoUrl || originalVideoUrl);
+    if (!hasSource) {
       toast.error('No source video found! Please try re-uploading.');
       return;
     }
 
     setIsCreatingClip(true);
-    setProgressMessage('📥 Step 1/3 — Loading...');
+    const isCloud = !!s3VideoUrl;
+    setProgressMessage(isCloud ? '☁️ Sending to server...' : '📥 Step 1/3 — Loading...');
 
     try {
-      const startTime = parseTimestamp(shot.timestamp);
-      const clipDuration = parseDuration(duration);
-      const endTime = startTime + clipDuration;
-
-      const source: File | string = videoFile || originalVideoUrl || '';
-      console.log(`📹 Clipping ${typeof source === 'string' ? 'from S3' : 'locally'}: ${shot.timestamp}`);
-
-      const clipBlob = await createMP4Clip(
-        source,
-        startTime,
-        endTime,
-        (msg) => setProgressMessage(msg),
-        selectedFormat
-      );
+      const clipBlob = await renderClip({
+        shot,
+        format: selectedFormat,
+        videoFile,
+        s3VideoUrl,
+        originalVideoUrl,
+        onProgress: (msg) => setProgressMessage(msg),
+      });
 
       const url = URL.createObjectURL(clipBlob);
       const fmt = CLIP_FORMATS.find((f) => f.id === selectedFormat);
-      const filename = `monstah_${fmt?.id}_${shot.timestamp.replace(/:/g, '-')}_${clipDuration}s.mp4`;
+      const filename = `monstah_${fmt?.id}_${shot.timestamp.replace(/:/g, '-')}.mp4`;
 
       const a = document.createElement('a');
       a.href = url;
@@ -84,7 +83,7 @@ export default function ShotCard({
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-      toast.success(`✅ MP4 clip downloaded: ${filename}`);
+      toast.success(`✅ Downloaded: ${filename}`);
     } catch (error: any) {
       console.error('❌ Clip creation failed:', error);
       toast.error(`Failed to create clip: ${error.message}`);
@@ -226,9 +225,9 @@ export default function ShotCard({
         ) : (
           <button
             onClick={(e) => { e.stopPropagation(); handleDownloadClip(); }}
-            disabled={!videoFile}
+            disabled={!videoFile && !s3VideoUrl && !originalVideoUrl}
             className={`w-full py-2.5 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-              !videoFile
+              !videoFile && !s3VideoUrl && !originalVideoUrl
                 ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                 : 'bg-gradient-to-r from-[#FF6B6B] to-[#FF8E53] hover:from-[#FF5252] hover:to-[#FF7043] text-white shadow-lg hover:shadow-xl'
             }`}
@@ -236,7 +235,7 @@ export default function ShotCard({
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            DOWNLOAD MP4 CLIP
+            {s3VideoUrl ? '⚡ RENDER & DOWNLOAD' : videoFile ? 'DOWNLOAD MP4 CLIP' : '☁️ RENDER FROM CLOUD'}
           </button>
         )}
 
@@ -262,4 +261,6 @@ export default function ShotCard({
       )}
     </motion.div>
   );
-}
+};
+
+export default ShotCard;

@@ -43,34 +43,36 @@ const playHoverSound = () => {
   }
 };
 
+const GB = 1024 * 1024 * 1024;
+
 const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [hasHovered, setHasHovered] = useState(false);
+  const [largFileWarning, setLargeFileWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 2 * 1024 * 1024 * 1024) {
-        alert("File is too large! Maximum allowed size is 2GB.");
-        return;
-      }
-      onUpload(file);
+  const processFile = (file: File) => {
+    if (file.size > 2 * GB) {
+      alert('❌ File is too large!\n\nMax size is 2 GB (≈ 15–20 min 1080p).\n\nTip: Compress with HandBrake or trim in iMovie first.');
+      return;
     }
+    // Advisory only — warn but allow
+    if (file.size > 1 * GB) {
+      setLargeFileWarning(true);
+    } else {
+      setLargeFileWarning(false);
+    }
+    onUpload(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.size > 2 * 1024 * 1024 * 1024) {
-        alert("File is too large! Maximum allowed size is 2GB.");
-        return;
-      }
-      onUpload(file);
-    }
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -186,8 +188,18 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
             {/* Formats info */}
             <p className="text-zinc-600 text-sm font-mono tracking-widest flex items-center gap-2 uppercase">
-              MP4 • MOV • AVI • UP TO 2GB
+              MP4 • MOV • AVI • MKV • UP TO 2 GB
             </p>
+
+            {/* Large file advisory */}
+            {largFileWarning && (
+              <div className="flex items-start gap-2 max-w-sm px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-left">
+                <span className="text-yellow-400 text-lg flex-shrink-0">⚠️</span>
+                <p className="text-yellow-300 text-xs leading-relaxed">
+                  <span className="font-bold">Large file detected.</span> Rendering will still work, but may take longer and requires at least 4 GB of free RAM. Make sure no other heavy apps are open.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

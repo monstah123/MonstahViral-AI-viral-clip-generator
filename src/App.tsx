@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isClipping, setIsClipping] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisStage, setAnalysisStage] = useState('Initializing...');
   const [recentProjects, setRecentProjects] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -115,10 +116,16 @@ const App: React.FC = () => {
       }
       
       // 3. AI ANALYSIS (80% - 100%)
-      setAnalysisProgress(85);
-      
-      const shots = await analyzeVideoForShots(file);
+      setAnalysisProgress(82);
+      setAnalysisStage('📡 Uploading to Gemini AI...');
+
+      const shots = await analyzeVideoForShots(file, (stage, pct) => {
+        // pct is 0-100 within the AI phase; map to 82-100 overall
+        setAnalysisProgress(82 + Math.round(pct * 0.18));
+        setAnalysisStage(stage);
+      });
       setAnalysisProgress(100);
+      setAnalysisStage('✅ Done!');
       const videoUrl = URL.createObjectURL(file);
       
       const newProject: VideoProject = {
@@ -491,6 +498,10 @@ Export Time: ${new Date().toLocaleString()}
                   <p className="text-gray-500 text-sm font-mono">
                     {Math.round(analysisProgress)}% COMPLETE
                   </p>
+                  {/* Live stage label */}
+                  <p className="text-gray-400 text-xs font-mono max-w-sm mx-auto px-4 truncate" title={analysisStage}>
+                    {analysisStage}
+                  </p>
                 </div>
 
                 {/* Progress Bar */}
@@ -650,6 +661,7 @@ Export Time: ${new Date().toLocaleString()}
                     isSelected={selectedShot?.id === shot.id}
                     onSelect={handleSelectShot}
                     videoFile={videoFile}
+                    s3VideoUrl={project.s3Url || null}
                     originalVideoUrl={project.originalVideoUrl}
                   />
                 ))}

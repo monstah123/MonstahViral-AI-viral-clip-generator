@@ -88,46 +88,90 @@ let ffmpeg: FFmpeg | null = null;
 let loaded = false;
 let loading = false;
 
+/** Force-destroy the singleton so the next call rebuilds it cleanly. */
+export function resetFFmpeg() {
+  try { (ffmpeg as any)?.terminate?.(); } catch {}
+  ffmpeg = null;
+  loaded = false;
+  loading = false;
+}
+
+/** Attempt to load FFmpeg from a CDN base. Hard-rejects after timeoutMs. */
+async function tryLoadFromCDN(
+  ff: FFmpeg,
+  base: string,
+  mt: boolean,
+  timeoutMs: number
+): Promise<void> {
+  const deadline = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`CDN timed out after ${timeoutMs / 1000}s`)), timeoutMs)
+  );
+  const loadArgs = mt
+    ? {
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+        workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
+      }
+    : {
+        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
+      };
+  await Promise.race([ff.load(loadArgs), deadline]);
+}
+
+const CDNS = [
+  { label: 'jsDelivr (multi-thread)', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.6/dist/esm', mt: true },
+  { label: 'jsDelivr (single-thread)', base: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm', mt: false },
+  { label: 'unpkg (multi-thread)', base: 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm', mt: true },
+  { label: 'unpkg (single-thread)', base: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm', mt: false },
+];
+
+function makeFFmpegInstance(onProgress?: (msg: string) => void): FFmpeg {
+  const ff = new FFmpeg();
+  ff.on('log', ({ message }) => console.log('[FFmpeg]', message));
+  ff.on('progress', ({ progress }) => onProgress?.(`Processing: ${Math.round(progress * 100)}%`));
+  return ff;
+}
+
 async function loadFFmpeg(onProgress?: (msg: string) => void): Promise<FFmpeg> {
   if (ffmpeg && loaded) return ffmpeg;
 
   if (loading) {
-    while (loading) await new Promise(r => setTimeout(r, 100));
+    let waited = 0;
+    while (loading && waited < 90000) {
+      await new Promise(r => setTimeout(r, 300));
+      waited += 300;
+    }
     if (ffmpeg && loaded) return ffmpeg;
+    resetFFmpeg();
   }
 
   loading = true;
-  ffmpeg = new FFmpeg();
-  ffmpeg.on('log', ({ message }) => console.log('[FFmpeg]', message));
-  ffmpeg.on('progress', ({ progress }) =>
-    onProgress?.(`Processing: ${Math.round(progress * 100)}%`)
-  );
+  let lastErr = 'Unknown';
 
-  onProgress?.('Loading FFmpeg...');
-
-  try {
-    const base = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
-      workerURL: await toBlobURL(`${base}/ffmpeg-core.worker.js`, 'text/javascript'),
-    });
-  } catch {
+  for (const cdn of CDNS) {
+    ffmpeg = makeFFmpegInstance(onProgress);
     try {
-      const base = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${base}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${base}/ffmpeg-core.wasm`, 'application/wasm'),
-      });
-    } catch {
+      onProgress?.(`⏳ Loading FFmpeg (${cdn.label})...`);
+      console.log(`[FFmpeg] Trying ${cdn.label}...`);
+      await tryLoadFromCDN(ffmpeg, cdn.base, cdn.mt, 90_000);
+      loaded = true;
       loading = false;
-      throw new Error('Failed to load FFmpeg. Please refresh and try again.');
+      console.log(`[FFmpeg] ✅ Loaded via ${cdn.label}`);
+      return ffmpeg;
+    } catch (err: any) {
+      lastErr = err?.message ?? String(err);
+      console.warn(`[FFmpeg] ${cdn.label} failed: ${lastErr}`);
+      try { (ffmpeg as any)?.terminate?.(); } catch {}
+      ffmpeg = null;
     }
   }
 
-  loaded = true;
   loading = false;
-  return ffmpeg;
+  throw new Error(
+    `Failed to load FFmpeg from all sources (last error: ${lastErr}).\n` +
+    `Please check your internet connection and try refreshing the page.`
+  );
 }
 
 function buildVideoFilter(format: ClipFormat): string | null {
@@ -162,16 +206,42 @@ export async function createMP4Clip(
   const ff = await loadFFmpeg(onProgress);
   const duration = endTime - startTime;
 
-  onProgress?.('📥 Step 1/3 — Reading video...');
-  const ext = typeof videoFile === 'string' ? 'mp4' : (videoFile.name.split('.').pop()?.toLowerCase() || 'mp4');
+  const isS3 = typeof videoFile === 'string';
+  onProgress?.(isS3 ? '🌐 Step 1/3 — Downloading from cloud (may take a moment)...' : '📥 Step 1/3 — Reading video...');
+  const ext = isS3 ? 'mp4' : (videoFile.name.split('.').pop()?.toLowerCase() || 'mp4');
   const inputName = `input.${ext}`;
 
+  // Per-step watchdog — rejects the promise if FFmpeg stalls
+  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  const makeWatchdog = (minutes: number) =>
+    new Promise<never>((_, reject) => {
+      watchdogTimer = setTimeout(
+        () => reject(new Error(`Step timed out after ${minutes} min. Try a shorter clip or check your internet connection.`)),
+        minutes * 60 * 1000
+      );
+    });
+  const clearWatchdog = () => {
+    if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+  };
+
   try {
-    const fileContent = await fetchFile(videoFile);
-    await ff.writeFile(inputName, fileContent);
-  } catch (err) {
-    console.error('Fetch error:', err);
-    throw new Error('Failed to load video source. Check S3 CORS settings!');
+    // Give S3 fetches up to 5 min (large files over slow connections)
+    await Promise.race([
+      (async () => {
+        const fileContent = await fetchFile(videoFile);
+        await ff.writeFile(inputName, fileContent);
+      })(),
+      makeWatchdog(5),
+    ]);
+    clearWatchdog();
+  } catch (err: any) {
+    clearWatchdog();
+    resetFFmpeg(); // bust the singleton so next attempt starts fresh
+    console.error('Fetch/write error:', err);
+    const msg = err?.message?.includes('timed out')
+      ? err.message
+      : 'Failed to load video source. Check your S3 CORS settings and internet connection.';
+    throw new Error(msg);
   }
 
   const vf = buildVideoFilter(format);
@@ -181,19 +251,6 @@ export async function createMP4Clip(
     try { await ff!.deleteFile(inputName); } catch {}
     try { await ff!.deleteFile('trimmed.mp4'); } catch {}
     try { await ff!.deleteFile('output.mp4'); } catch {}
-  };
-
-  // Per-step watchdog — rejects the promise if FFmpeg stalls
-  let watchdogTimer: ReturnType<typeof setTimeout> | null = null;
-  const makeWatchdog = (minutes: number) =>
-    new Promise<never>((_, reject) => {
-      watchdogTimer = setTimeout(
-        () => reject(new Error(`Step timed out after ${minutes} min. Try a shorter clip.`)),
-        minutes * 60 * 1000
-      );
-    });
-  const clearWatchdog = () => {
-    if (watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
   };
 
   try {
@@ -237,18 +294,33 @@ export async function createMP4Clip(
       clearWatchdog();
 
     } else {
-      // ── SINGLE-PASS for simple/no filters ────────────────────────────────
-      const label = CLIP_FORMATS.find(f => f.id === format)?.label || format;
-      onProgress?.(
-        format === 'original'
-          ? '⚙️ Step 2/2 — Encoding clip...'
-          : `⚙️ Step 2/2 — Converting to ${label}...`
-      );
+      // ── TWO-PASS for all simple/no filters ───────────────────────────────
+      // Pass 1: Fast codec-copy trim — no re-encoding, just cuts the segment.
+      //         Works instantly even on 900MB+ source files.
+      onProgress?.('✂️ Step 2/3 — Trimming clip...');
       await Promise.race([
         ff.exec([
           '-ss', startTime.toString(),
           '-i', inputName,
           '-t', duration.toString(),
+          '-c', 'copy',
+          '-avoid_negative_ts', 'make_zero',
+          'trimmed.mp4',
+        ]),
+        makeWatchdog(2),
+      ]);
+      clearWatchdog();
+
+      // Pass 2: Encode ONLY the tiny trimmed clip — source is now small (15-60s).
+      const label = CLIP_FORMATS.find(f => f.id === format)?.label || format;
+      onProgress?.(
+        format === 'original'
+          ? '⚙️ Step 3/3 — Encoding clip...'
+          : `⚙️ Step 3/3 — Converting to ${label}...`
+      );
+      await Promise.race([
+        ff.exec([
+          '-i', 'trimmed.mp4',
           ...(vf ? ['-vf', vf] : []),
           '-c:v', 'libx264',
           '-profile:v', 'baseline',
@@ -258,12 +330,10 @@ export async function createMP4Clip(
           '-pix_fmt', 'yuv420p',
           '-c:a', 'aac',
           '-b:a', '128k',
-          // Only force output size when a format filter is applied. 'original' keeps source dims.
-          ...(vf ? ['-s', '1080x1920'] : []),
           '-movflags', 'faststart',
           'output.mp4',
         ]),
-        makeWatchdog(4),
+        makeWatchdog(5), // 5 min max for the encode of a short clip
       ]);
       clearWatchdog();
     }
@@ -280,6 +350,8 @@ export async function createMP4Clip(
   } catch (err) {
     clearWatchdog();
     await cleanup();
+    // Reset the singleton so the next render attempt starts with a fresh FFmpeg instance
+    resetFFmpeg();
     console.error('Clipping failed:', err);
     throw err;
   }
