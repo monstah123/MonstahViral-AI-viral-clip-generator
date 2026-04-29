@@ -41,22 +41,52 @@ export async function renderClip(opts: RenderOptions): Promise<Blob> {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 300_000); // 300 s client timeout (5 min)
 
-      const response = await fetch('/api/render-clip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          s3Key,
-          startTime,
-          duration: clipDuration,
-          format,
-        }),
-        signal: controller.signal,
-      });
+      let response;
+      let retries = 3;
+      let lastErr;
+
+      while (retries > 0) {
+        try {
+          response = await fetch('/api/render-clip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              s3Key,
+              startTime,
+              duration: clipDuration,
+              format,
+            }),
+            signal: controller.signal,
+          });
+          
+          if (response.ok) break; // Success!
+
+          // If not OK, read error but don't immediately throw if we can retry
+          const errData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          lastErr = new Error(errData.error ?? `Server returned ${response.status}`);
+          
+          // Only retry on 502/504 gateway timeouts or cold start drops
+          if (response.status !== 502 && response.status !== 504 && response.status !== 500) {
+            retries = 0; // Don't retry 4xx errors
+          }
+        } catch (e: any) {
+          lastErr = e;
+          // Network errors (like ERR_SSL_PROTOCOL_ERROR) throw TypeError "Failed to fetch"
+          if (e.name === 'AbortError') retries = 0; // Don't retry manual timeouts
+        }
+        
+        retries--;
+        if (retries > 0) {
+          console.warn(`[renderClip] Render attempt failed: ${lastErr?.message}. Retrying in 2s...`);
+          onProgress('☁️ Server warming up... retrying connection...');
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+      
       clearTimeout(timeout);
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-        throw new Error(errData.error ?? `Server returned ${response.status}`);
+      if (!response || !response.ok) {
+        throw lastErr || new Error('Server render failed after retries.');
       }
 
       const { clipUrl } = await response.json();
