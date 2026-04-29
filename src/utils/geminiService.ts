@@ -78,6 +78,7 @@ async function uploadToGeminiChunked(
 
 export const analyzeVideoForShots = async (
   videoFile: File,
+  focusMode: string,
   onProgress?: (stage: string, pct: number) => void
 ): Promise<MonstahShot[]> => {
   if (!GEMINI_API_KEY) {
@@ -130,9 +131,20 @@ export const analyzeVideoForShots = async (
     // Upgraded to Gemini 3 Flash (2026 standard) to fix 404 and ensure high-fidelity analysis
     const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
     
+    let focusInstruction = "Identify 6 to 10 high-impact segments that possess maximum retention potential.";
+    if (focusMode === 'Educational & Tutorial') {
+      focusInstruction = "Focus heavily on moments where a specific concept is explained clearly, a problem is solved, or a high-value tip is shared. Look for educational 'aha' moments.";
+    } else if (focusMode === 'Funny & Comedy') {
+      focusInstruction = "Hunt specifically for punchlines, awkward silences, unexpected reactions, bloopers, or highly comedic timing. Prioritize humor over raw retention.";
+    } else if (focusMode === 'Action & Highlights') {
+      focusInstruction = "Look for high-energy movement, fast-paced talking, intense moments, big reveals, or physical action. Ignore slow build-ups.";
+    } else if (focusMode === 'Drama & Storytelling') {
+      focusInstruction = "Seek out emotional peaks, deep vulnerability, controversial statements, or dramatic narrative shifts. Look for the hook of a great story.";
+    }
+
     const prompt = `You are a world-class Viral Architect and Social Media Strategist. 
 Analyze this video for potential viral social media clips (TikTok, Reels, Shorts). 
-Identify 6 to 10 high-impact segments that possess maximum retention potential.
+${focusInstruction}
 
 For each segment, provide:
 - Catchy, high-CTR title (max 60 characters)

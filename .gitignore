@@ -30,3 +30,4 @@ dist-ssr
 
 # FFmpeg binary (copied during Vercel build — platform-specific)
 api/ffmpeg-bin
+.vercel

@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Upload, FileVideo, Plus } from 'lucide-react';
 
 interface VideoUploaderProps {
-  onUpload: (file: File) => void;
+  onUpload: (file: File, focusMode: string) => void;
   isLoading: boolean;
 }
 
@@ -49,7 +49,16 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
   const [isDragging, setIsDragging] = useState(false);
   const [hasHovered, setHasHovered] = useState(false);
   const [largFileWarning, setLargeFileWarning] = useState(false);
+  const [focusMode, setFocusMode] = useState('Default (Viral Moments)');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const FOCUS_MODES = [
+    'Default (Viral Moments)',
+    'Educational & Tutorial',
+    'Funny & Comedy',
+    'Action & Highlights',
+    'Drama & Storytelling'
+  ];
 
   const processFile = (file: File) => {
     if (file.size > 2 * GB) {
@@ -62,7 +71,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
     } else {
       setLargeFileWarning(false);
     }
-    onUpload(file);
+    onUpload(file, focusMode);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,6 +150,27 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
         <div className="p-16 md:p-24 relative z-10">
           <div className="flex flex-col items-center gap-8">
+            
+            {/* AI Focus Mode Selector */}
+            <div className="relative group/select z-50 w-full max-w-xs mb-4" onClick={(e) => e.stopPropagation()}>
+              <label className="block text-xs font-black text-purple-400 mb-2 uppercase tracking-widest text-center">
+                AI Focus Mode
+              </label>
+              <select
+                value={focusMode}
+                onChange={(e) => setFocusMode(e.target.value)}
+                className="w-full appearance-none bg-zinc-950 border border-zinc-800 hover:border-purple-500 text-white text-sm font-bold py-3 px-4 rounded-xl cursor-pointer outline-none transition-colors shadow-2xl focus:ring-2 focus:ring-purple-500/50 text-center"
+              >
+                {FOCUS_MODES.map((mode) => (
+                  <option key={mode} value={mode} className="bg-zinc-900 text-white">
+                    {mode}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 bottom-3.5 pointer-events-none">
+                <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
             
             {/* Main Icon Area */}
             <div className="relative">

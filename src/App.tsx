@@ -84,7 +84,7 @@ const App: React.FC = () => {
     videoRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
-  const handleFileUpload = async (file: File) => {
+  const handleFileUpload = async (file: File, focusMode: string) => {
     if (!hasApiKey) {
       alert("Please set up your Google API key first");
       return;
@@ -115,7 +115,7 @@ const App: React.FC = () => {
       setAnalysisProgress(82);
       setAnalysisStage('📡 Uploading to Gemini AI...');
 
-      const shots = await analyzeVideoForShots(file, (stage, pct) => {
+      const shots = await analyzeVideoForShots(file, focusMode, (stage, pct) => {
         // pct is 0-100 within the AI phase; map to 82-100 overall
         setAnalysisProgress(82 + Math.round(pct * 0.18));
         setAnalysisStage(stage);
