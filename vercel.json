@@ -1,5 +1,5 @@
 {
-  "buildCommand": "node scripts/prepare-ffmpeg.cjs && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "headers": [
@@ -14,8 +14,7 @@
   ],
   "functions": {
     "api/render-clip.ts": {
-      "maxDuration": 300,
-      "includeFiles": "api/ffmpeg-bin"
+      "maxDuration": 300
     }
   },
   "rewrites": [
