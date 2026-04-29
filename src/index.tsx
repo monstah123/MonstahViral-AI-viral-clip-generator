@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Buffer } from 'buffer';
 import App from './App';
+import { AuthProvider } from './contexts/AuthContext';
 import './index.css';
 
 // Ensure Buffer is available globally for standard libraries (e.g., AWS SDK)
@@ -17,6 +18,8 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );

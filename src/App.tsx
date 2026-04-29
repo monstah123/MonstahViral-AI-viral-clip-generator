@@ -5,13 +5,16 @@ import Header from './components/Header';
 import VideoUploader from './components/VideoUploader';
 import ShotCard from './components/ShotCard';
 import LandingPage from './components/LandingPage';
+import AuthPage from './components/AuthPage';
 import { uploadToS3, listItemsFromS3, deleteFromS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
-import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Camera } from 'lucide-react';
+import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Camera, LogOut } from 'lucide-react';
 import { captureThumbnail } from './utils/thumbnailUtils';
 import { playDuolingoHoverSound } from './utils/soundUtils';
+import { useAuth } from './contexts/AuthContext';
 
 const App: React.FC = () => {
+  const { user, loading: authLoading, logout } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [project, setProject] = useState<VideoProject | null>(null);
   const [selectedShot, setSelectedShot] = useState<MonstahShot | null>(null);
@@ -410,6 +413,20 @@ Export Time: ${new Date().toLocaleString()}
     setVideoFile(null);
   };
 
+  // ── Auth gate ──────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto" />
+          <p className="mt-4 text-zinc-500 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return <AuthPage />;
+
   if (showLanding) {
     return <LandingPage onStart={() => setShowLanding(false)} />;
   }
@@ -447,7 +464,7 @@ Export Time: ${new Date().toLocaleString()}
     <div className="min-h-screen bg-black pb-20">
       <Header />
 
-      {/* 🫧 Home Bubble — Moved down to avoid header overlap */}
+      {/* 🫧 Home Bubble */}
       <button
         onClick={() => setShowLanding(true)}
         title="Back to Home"
@@ -456,6 +473,29 @@ Export Time: ${new Date().toLocaleString()}
         <span className="text-lg sm:text-xl">🏠</span>
         <span className="text-xs sm:text-sm font-bold text-gray-400 group-hover:text-white transition-colors">HOME</span>
       </button>
+
+      {/* 👤 User Avatar + Logout */}
+      <div className="fixed top-20 left-4 sm:left-6 z-50 flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-zinc-900/90 backdrop-blur-md border border-zinc-700 shadow-2xl">
+          {user.photoURL ? (
+            <img src={user.photoURL} alt="avatar" className="w-6 h-6 rounded-full" />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center text-xs font-black text-white">
+              {(user.displayName || user.email || 'U')[0].toUpperCase()}
+            </div>
+          )}
+          <span className="text-xs font-bold text-zinc-400 hidden sm:block max-w-[120px] truncate">
+            {user.displayName || user.email}
+          </span>
+        </div>
+        <button
+          onClick={logout}
+          title="Sign out"
+          className="p-2 rounded-full bg-zinc-900/90 backdrop-blur-md border border-zinc-700 text-zinc-500 hover:text-red-400 hover:border-red-500/40 transition-all shadow-2xl"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {!project ? (
