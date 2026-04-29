@@ -12,6 +12,8 @@ import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Ca
 import { captureThumbnail } from './utils/thumbnailUtils';
 import { playDuolingoHoverSound } from './utils/soundUtils';
 import { useAuth } from './contexts/AuthContext';
+import { db } from './lib/firebase';
+import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
 
 const App: React.FC = () => {
   const { user, loading: authLoading, logout } = useAuth();
@@ -35,39 +37,30 @@ const App: React.FC = () => {
 
   // Load history on mount
   useEffect(() => {
-    if (!showLanding) {
+    if (!showLanding && user) {
       loadHistory();
     }
-  }, [showLanding]);
+  }, [showLanding, user]);
 
   const loadHistory = async () => {
+    if (!user) return;
     setIsLoadingHistory(true);
     try {
-      const items = await listItemsFromS3('projects/');
-      const sorted = items
-        .filter(item => item.Key?.endsWith('.json'))
-        .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0));
-      
-      // Fetch the actual JSON content for the first 10 projects to get thumbnails/titles
-      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
-      const region = import.meta.env.VITE_AWS_REGION;
-      
-      const detailedProjects = await Promise.all(
-        sorted.slice(0, 12).map(async (item) => {
-          try {
-            const url = `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            return { ...data, s3Key: item.Key, lastModified: item.LastModified };
-          } catch (e) {
-            return { title: item.Key?.split('/').pop(), s3Key: item.Key, lastModified: item.LastModified };
-          }
-        })
+      const q = query(
+        collection(db, 'projects'),
+        where('userId', '==', user.uid),
+        orderBy('saveDate', 'desc')
       );
       
-      setRecentProjects(detailedProjects);
+      const querySnapshot = await getDocs(q);
+      const userProjects = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setRecentProjects(userProjects);
     } catch (err) {
-      console.error('Failed to load history:', err);
+      console.error('Failed to load history from Firestore:', err);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -144,8 +137,8 @@ const App: React.FC = () => {
 
       setProject(newProject);
       
-      // Save metadata to AWS automatically
-      await saveProjectToAWS(newProject, awsUrl);
+      // Save metadata to Firestore automatically
+      await saveProjectToFirestore(newProject, awsUrl);
       loadHistory(); // Refresh history
       
       if (shots && shots.length > 0) {
@@ -171,22 +164,16 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRenameProject = async (s3Key: string, newTitle: string) => {
+  const handleRenameProject = async (projectId: string, newTitle: string) => {
     try {
-      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
-      const region = import.meta.env.VITE_AWS_REGION;
-      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${s3Key}`;
-      
-      const res = await fetch(url);
-      const proj = await res.json();
-      
-      const updatedProj = { ...proj, title: newTitle };
-      await uploadToS3(s3Key, JSON.stringify(updatedProj, null, 2), 'application/json');
+      await updateDoc(doc(db, 'projects', projectId), {
+        title: newTitle
+      });
       
       setEditingProjectId(null);
       loadHistory();
       
-      if (project?.id === proj.id) {
+      if (project?.id === projectId) {
         setProject({ ...project, title: newTitle });
       }
     } catch (err) {
@@ -194,35 +181,26 @@ const App: React.FC = () => {
     }
   };
 
-  const saveProjectToAWS = async (proj: VideoProject, videoS3Url: string) => {
+  const saveProjectToFirestore = async (proj: VideoProject, videoS3Url: string) => {
+    if (!user) return;
     try {
-      const timestamp = Date.now();
-      const fileName = `projects/${timestamp}_${proj.title.replace(/[^a-zA-Z0-9.-]/g, '_')}.json`;
       const metadata = {
         ...proj,
         s3Url: videoS3Url, // Use the real S3 URL for persistence
+        userId: user.uid,
         saveDate: new Date().toISOString()
       };
       
-      await uploadToS3(fileName, JSON.stringify(metadata, null, 2), 'application/json');
+      await setDoc(doc(db, 'projects', proj.id), metadata);
     } catch (err) {
-      console.error('Failed to save project metadata:', err);
+      console.error('Failed to save project metadata to Firestore:', err);
     }
   };
 
-  const loadProjectFromS3 = async (key: string) => {
+  const loadProject = async (proj: any) => {
     setIsProcessing(true);
     try {
-      // 1. Get the JSON metadata from S3
-      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
-      const region = import.meta.env.VITE_AWS_REGION;
-      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to load project metadata');
-      const proj = await response.json();
-
-      // 2. Set the project (Note: originalVideoUrl will be the S3 URL now)
+      // Set the project (originalVideoUrl will be the S3 URL now)
       setProject({
         ...proj,
         originalVideoUrl: proj.s3Url // Load directly from S3
@@ -232,49 +210,44 @@ const App: React.FC = () => {
       if (proj.shots && proj.shots.length > 0) {
         setSelectedShot(proj.shots[0]);
       }
-      
     } catch (err) {
       console.error('Failed to load project:', err);
-      alert('Failed to load project. The file might have been moved or deleted.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDeleteProject = async (projKey: string, e?: React.MouseEvent) => {
+  const handleDeleteProject = async (proj: any, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    // Use in-app confirmation instead of window.confirm() which blinks on Chrome/Mac
     setPendingDeleteKey(null); // Close the confirm UI
 
     try {
-      // 1. First, we need to find the video URL to delete the video too
-      const bucketName = import.meta.env.VITE_AWS_BUCKET_NAME;
-      const region = import.meta.env.VITE_AWS_REGION;
-      const url = `https://${bucketName}.s3.${region}.amazonaws.com/${projKey}`;
-      const response = await fetch(url);
-      const projData = await response.json();
+      // 1. Delete Metadata from Firestore
+      await deleteDoc(doc(db, 'projects', proj.id));
 
-      // 2. Delete Metadata JSON
-      await deleteFromS3(projKey);
-
-      // 3. Delete Video file if it exists and follows our naming convention
-      if (projData.s3Url) {
-         const videoKey = projData.s3Url.split('.amazonaws.com/')[1];
+      // 2. Delete Video file from S3 if it exists
+      if (proj.s3Url) {
+         const videoKey = proj.s3Url.split('.amazonaws.com/')[1];
          if (videoKey) await deleteFromS3(videoKey);
       }
+      
+      // Delete thumbnail from S3 if it exists
+      if (proj.thumbnailUrl) {
+         const thumbKey = proj.thumbnailUrl.split('.amazonaws.com/')[1];
+         if (thumbKey) await deleteFromS3(thumbKey);
+      }
 
-      // 4. Force reset if current project
-      if (project?.title === projData.title) {
+      // 3. Force reset if current project
+      if (project?.id === proj.id) {
         setProject(null);
       }
 
-      // 5. Show success BEFORE reloading history (prevents re-render blink)
-      alert('Project deleted successfully from AWS.');
+      // 4. Show success
+      alert('Project deleted successfully.');
       loadHistory();
     } catch (err: any) {
       console.error('Delete failed:', err);
-      // Show the real error — common cause is missing DELETE in S3 CORS
-      alert(`❌ Delete failed: ${err?.message || 'Unknown error'}\n\nIf this says "Access Denied", add DELETE to your S3 CORS allowed methods.`);
+      alert(`❌ Delete failed: ${err?.message || 'Unknown error'}`);
     }
   };
 
@@ -572,19 +545,19 @@ Export Time: ${new Date().toLocaleString()}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-2">
                       {recentProjects.map((item: any) => {
-                        const s3Key = item.s3Key;
-                        const date = new Date(item.lastModified || Date.now()).toLocaleDateString();
-                        const isEditing = editingProjectId === item.id;
+                        const projectId = item.id;
+                        const date = new Date(item.saveDate || Date.now()).toLocaleDateString();
+                        const isEditing = editingProjectId === projectId;
                         
                         return (
                           <div 
-                            key={s3Key}
+                            key={projectId}
                             className="group relative bg-zinc-900/60 border border-zinc-800 hover:border-blue-500/40 rounded-2xl overflow-hidden transition-all hover:scale-[1.03] shadow-2xl"
                           >
                             {/* THUMBNAIL PREVIEW */}
                             <div 
                               className="aspect-video w-full bg-zinc-800 relative overflow-hidden cursor-pointer"
-                              onClick={() => loadProjectFromS3(s3Key)}
+                              onClick={() => loadProject(item)}
                             >
                               {item.thumbnailUrl ? (
                                 <img 
@@ -615,11 +588,11 @@ Export Time: ${new Date().toLocaleString()}
                                         onChange={(e) => setEditingTitle(e.target.value)}
                                         className="bg-black border border-blue-500 text-white p-1 rounded w-full text-sm font-bold"
                                         onKeyDown={(e) => {
-                                          if (e.key === 'Enter') handleRenameProject(s3Key, editingTitle);
+                                          if (e.key === 'Enter') handleRenameProject(projectId, editingTitle);
                                           if (e.key === 'Escape') setEditingProjectId(null);
                                         }}
                                       />
-                                      <button onClick={() => handleRenameProject(s3Key, editingTitle)} className="p-1 text-green-500"><Check className="w-4 h-4" /></button>
+                                      <button onClick={() => handleRenameProject(projectId, editingTitle)} className="p-1 text-green-500"><Check className="w-4 h-4" /></button>
                                       <button onClick={() => setEditingProjectId(null)} className="p-1 text-red-500"><X className="w-4 h-4" /></button>
                                     </div>
                                   ) : (
@@ -629,7 +602,7 @@ Export Time: ${new Date().toLocaleString()}
                                           {item.title}
                                         </h3>
                                         <button 
-                                          onClick={() => { setEditingProjectId(item.id); setEditingTitle(item.title); }}
+                                          onClick={() => { setEditingProjectId(projectId); setEditingTitle(item.title); }}
                                           className="opacity-0 group-hover/title:opacity-100 p-1 text-zinc-500 hover:text-white transition-opacity"
                                         >
                                           <Edit3 className="w-3 h-3" />
@@ -640,10 +613,10 @@ Export Time: ${new Date().toLocaleString()}
                                   )}
                                 </div>
                                 
-                                {pendingDeleteKey === s3Key ? (
+                                {pendingDeleteKey === projectId ? (
                                   <div className="flex items-center gap-1 flex-shrink-0">
                                     <button
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteProject(s3Key, e); }}
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteProject(item, e); }}
                                       className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white text-[9px] font-black rounded-lg transition-all"
                                     >YES</button>
                                     <button
@@ -653,7 +626,7 @@ Export Time: ${new Date().toLocaleString()}
                                   </div>
                                 ) : (
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); setPendingDeleteKey(s3Key); }}
+                                    onClick={(e) => { e.stopPropagation(); setPendingDeleteKey(projectId); }}
                                     className="p-2 text-zinc-700 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex-shrink-0"
                                   >
                                     <Trash2 className="w-4 h-4" />
@@ -662,7 +635,7 @@ Export Time: ${new Date().toLocaleString()}
                               </div>
                               
                               <button 
-                                onClick={() => loadProjectFromS3(s3Key)}
+                                onClick={() => loadProject(item)}
                                 className="w-full mt-4 py-2 bg-zinc-800 hover:bg-blue-600 text-[10px] font-black text-zinc-400 hover:text-white rounded-lg transition-all flex items-center justify-center gap-2 tracking-widest uppercase"
                               >
                                 <ExternalLink className="w-3 h-3" />
