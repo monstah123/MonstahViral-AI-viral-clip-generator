@@ -11,7 +11,13 @@ export const config = { maxDuration: 300 };
 const FFMPEG_PATH = '/tmp/ffmpeg';
 const FFMPEG_URL = 'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64';
 
-function ensureFFmpeg(): string {
+let downloadPromise: Promise<string> | null = null;
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
+
+async function ensureFFmpegAsync(): Promise<string> {
+  // If it's already downloaded and verified, return it instantly
   if (fs.existsSync(FFMPEG_PATH)) {
     const stats = fs.statSync(FFMPEG_PATH);
     if (stats.size > 10_000_000) {
@@ -21,22 +27,44 @@ function ensureFFmpeg(): string {
     fs.unlinkSync(FFMPEG_PATH);
   }
 
-  console.log('[render-clip] Downloading FFmpeg binary...');
-  const t = Date.now();
-  execSync(`curl -sL "${FFMPEG_URL}" -o "${FFMPEG_PATH}" && chmod +x "${FFMPEG_PATH}"`, {
-    timeout: 120_000,
-  });
-  console.log(`[render-clip] FFmpeg ready in ${((Date.now() - t) / 1000).toFixed(1)}s`);
-
-  if (!fs.existsSync(FFMPEG_PATH)) throw new Error('FFmpeg download failed');
-  
-  const finalStats = fs.statSync(FFMPEG_PATH);
-  if (finalStats.size < 10_000_000) {
-    fs.unlinkSync(FFMPEG_PATH);
-    throw new Error('Downloaded FFmpeg is too small, possibly an HTML error page');
+  // If a download is currently in progress, wait for it instead of starting another
+  if (downloadPromise) {
+    console.log('[render-clip] Waiting for existing FFmpeg download to finish...');
+    return downloadPromise;
   }
 
-  return FFMPEG_PATH;
+  // Start a new download and store the promise globally so concurrent requests can await it
+  downloadPromise = new Promise(async (resolve, reject) => {
+    console.log('[render-clip] Downloading FFmpeg binary...');
+    const t = Date.now();
+    const tempPath = `${FFMPEG_PATH}_temp_${Date.now()}`;
+    
+    try {
+      // Use async exec to prevent blocking the Node.js event loop
+      await execAsync(`curl -sL "${FFMPEG_URL}" -o "${tempPath}" && chmod +x "${tempPath}"`, {
+        timeout: 120_000,
+      });
+      console.log(`[render-clip] FFmpeg downloaded in ${((Date.now() - t) / 1000).toFixed(1)}s`);
+
+      if (!fs.existsSync(tempPath)) throw new Error('FFmpeg download failed (temp file missing)');
+      
+      const finalStats = fs.statSync(tempPath);
+      if (finalStats.size < 10_000_000) {
+        fs.unlinkSync(tempPath);
+        throw new Error('Downloaded FFmpeg is too small, possibly an HTML error page');
+      }
+      
+      // Atomic rename ensures no other request reads a partially written file
+      fs.renameSync(tempPath, FFMPEG_PATH);
+      resolve(FFMPEG_PATH);
+    } catch (error) {
+      downloadPromise = null; // Reset on failure so we can try again
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+      reject(error);
+    }
+  });
+
+  return downloadPromise;
 }
 
 // ─── AWS (lazy) ──────────────────────────────────────────────────────────────
