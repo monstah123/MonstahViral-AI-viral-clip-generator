@@ -35,7 +35,7 @@ function buildFilter(format: string): FilterResult {
     case 'vertical_crop_right':
       return { vf: 'crop=ih*9/16:ih:iw-ih*9/16:0,scale=1080:1920' };
     case 'vertical_blur':
-      return { filterComplex: '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:3[bg];[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2' };
+      return { filterComplex: '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:3[bg];[0:v]scale=1080:1920:force_original_aspect_ratio=decrease[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2[vout]' };
     case 'vertical_pad':
       return { vf: 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black' };
     case 'square':
@@ -132,6 +132,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await runFFmpeg([
           '-i', tmpTrim,
           '-filter_complex', filter.filterComplex,
+          '-map', '[vout]',
           '-map', '0:a?',
           ...ENCODE_ARGS,
           '-y', tmpOut,

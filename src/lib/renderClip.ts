@@ -71,13 +71,20 @@ export async function renderClip(opts: RenderOptions): Promise<Blob> {
 
     } catch (err: any) {
       if (err?.name === 'AbortError') {
-        console.warn('[renderClip] Server render timed out — falling back to browser WASM');
-        onProgress('⚠️ Server timed out — switching to browser render (may be slow)...');
+        console.warn('[renderClip] Server render timed out');
+        // Don't silently fall back to browser WASM for cloud videos — it will hang for hours
+        throw new Error(
+          'Server render timed out (5 min limit). Your clip may be too long or the server is overloaded. ' +
+          'Try a shorter clip or wait a moment and retry.'
+        );
       } else {
-        console.warn('[renderClip] Server render failed:', err.message, '— falling back to browser WASM');
-        onProgress(`⚠️ Server unavailable — switching to browser render...`);
+        console.warn('[renderClip] Server render failed:', err.message);
+        // If we have an S3 URL, the file is too large for browser WASM — don't fall back
+        throw new Error(
+          `Server render failed: ${err.message}. ` +
+          'The cloud renderer could not process this clip. Try again or use a shorter segment.'
+        );
       }
-      // Fall through to browser WASM
     }
   }
 

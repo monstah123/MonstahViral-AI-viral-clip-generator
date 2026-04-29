@@ -14,7 +14,7 @@
   ],
   "functions": {
     "api/render-clip.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     }
   },
   "rewrites": [
