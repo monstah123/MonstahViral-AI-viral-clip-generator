@@ -115,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 1. Ensure FFmpeg
   let bin: string;
   try {
-    bin = ensureFFmpeg();
+    bin = await ensureFFmpegAsync();
   } catch (e: any) {
     return res.status(500).json({ error: `FFmpeg setup failed: ${e.message}` });
   }
