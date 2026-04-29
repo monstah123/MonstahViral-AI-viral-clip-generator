@@ -129,7 +129,12 @@ export const analyzeVideoForShots = async (
 
   try {
     // Upgraded to Gemini 3 Flash (2026 standard) to fix 404 and ensure high-fidelity analysis
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-3-flash-preview',
+      generationConfig: {
+        responseMimeType: 'application/json'
+      }
+    });
     
     let focusInstruction = "Identify 6 to 10 high-impact segments that possess maximum retention potential.";
     if (focusMode === 'Educational & Tutorial') {
@@ -170,17 +175,26 @@ DO NOT include any conversational text or markdown code blocks. RETURN ONLY THE 
 
     const text = result.response.text();
     
-    // Robust JSON extraction to handle model inconsistencies
+    // Robust JSON extraction to handle model inconsistencies and truncated outputs
     const extractJSON = (rawText: string) => {
       try {
-        const start = rawText.indexOf('[');
-        const end = rawText.lastIndexOf(']');
-        if (start === -1 || end === -1) throw new Error('No JSON array found in response');
-        return JSON.parse(rawText.substring(start, end + 1));
-      } catch (e) {
-        // Fallback for markdown blocks
-        const cleaned = rawText.replace(/```json\n?|\n?```/g, '').trim();
-        return JSON.parse(cleaned);
+        let textToParse = rawText.trim();
+        // Remove markdown formatting if it still sneaks in
+        textToParse = textToParse.replace(/```json\n?|\n?```/g, '').trim();
+        
+        // Auto-fix truncated arrays (if model runs out of tokens)
+        if (textToParse.startsWith('[') && !textToParse.endsWith(']')) {
+          const lastBrace = textToParse.lastIndexOf('}');
+          if (lastBrace !== -1) {
+            textToParse = textToParse.substring(0, lastBrace + 1) + ']';
+          } else {
+            textToParse = '[]'; // Full failure
+          }
+        }
+        
+        return JSON.parse(textToParse);
+      } catch (e: any) {
+        throw new Error(`JSON Parse error: ${e.message}. The AI response was malformed.`);
       }
     };
 
