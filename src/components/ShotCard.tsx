@@ -27,6 +27,7 @@ const ShotCard: React.FC<ShotCardProps> = ({
 }) => {
   const [isCreatingClip, setIsCreatingClip] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<ClipFormat>('original');
   const [formatOpen, setFormatOpen] = useState(false);
 
@@ -58,6 +59,7 @@ const ShotCard: React.FC<ShotCardProps> = ({
     }
 
     setIsCreatingClip(true);
+    setErrorMessage('');
     const isCloud = !!s3VideoUrl;
     setProgressMessage(isCloud ? '☁️ Sending to server...' : '📥 Step 1/3 — Loading...');
 
@@ -84,12 +86,14 @@ const ShotCard: React.FC<ShotCardProps> = ({
       setTimeout(() => URL.revokeObjectURL(url), 5000);
 
       toast.success(`✅ Downloaded: ${filename}`);
-    } catch (error: any) {
-      console.error('❌ Clip creation failed:', error);
-      toast.error(`Failed to create clip: ${error.message}`);
-    } finally {
       setIsCreatingClip(false);
       setProgressMessage('');
+    } catch (error: any) {
+      console.error('❌ Clip creation failed:', error);
+      toast.error(`Failed to create clip: ${error.message}`, { duration: 8000 });
+      setIsCreatingClip(false);
+      setProgressMessage('');
+      setErrorMessage(error.message || 'Unknown render error');
     }
   };
 
@@ -190,6 +194,22 @@ const ShotCard: React.FC<ShotCardProps> = ({
           )}
         </div>
 
+        {/* ── Error Banner (persistent) ── */}
+        {errorMessage && !isCreatingClip && (
+          <div className="w-full rounded-xl bg-red-950/60 border border-red-500/40 p-3 space-y-2 mb-1">
+            <div className="flex items-start gap-2 text-xs text-red-300">
+              <span className="text-red-400 flex-shrink-0 text-base mt-0.5">❌</span>
+              <span className="break-words">{errorMessage}</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); setErrorMessage(''); handleDownloadClip(); }}
+              className="w-full py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-2"
+            >
+              🔄 RETRY RENDER
+            </button>
+          </div>
+        )}
+
         {/* ── Download Button / Live Progress ── */}
         {isCreatingClip ? (
           <div className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-3 space-y-2">
@@ -222,7 +242,7 @@ const ShotCard: React.FC<ShotCardProps> = ({
               <span className="truncate">{progressMessage || 'Starting...'}</span>
             </div>
           </div>
-        ) : (
+        ) : !errorMessage && (
           <button
             onClick={(e) => { e.stopPropagation(); handleDownloadClip(); }}
             disabled={!videoFile && !s3VideoUrl && !originalVideoUrl}
