@@ -7,19 +7,34 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 export const config = { maxDuration: 300 }; // 300s (5 min) — Vercel Pro
 
-// ─── Safe FFmpeg binary resolution ───────────────────────────────────────────
+// ─── FFmpeg binary resolution ────────────────────────────────────────────────
+// Priority: 1) co-located binary (copied during build), 2) ffmpeg-static, 3) system
 let ffmpegBin: string | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  ffmpegBin = require('ffmpeg-static');
-} catch (e) {
-  console.error('[render-clip] ffmpeg-static not found:', e);
+
+// 1. Co-located binary (most reliable on Vercel — copied by scripts/prepare-ffmpeg.cjs)
+const colocated = path.join(__dirname, 'ffmpeg-bin');
+if (fs.existsSync(colocated)) {
+  ffmpegBin = colocated;
+  console.log('[render-clip] Using co-located FFmpeg binary');
 }
 
-// Fallback: check common system paths
-if (!ffmpegBin || !fs.existsSync(ffmpegBin)) {
-  const fallbacks = ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/bin/ffmpeg'];
-  for (const fb of fallbacks) {
+// 2. Try ffmpeg-static package
+if (!ffmpegBin) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const staticPath = require('ffmpeg-static');
+    if (staticPath && fs.existsSync(staticPath)) {
+      ffmpegBin = staticPath;
+      console.log('[render-clip] Using ffmpeg-static at:', staticPath);
+    }
+  } catch (e) {
+    console.warn('[render-clip] ffmpeg-static not available');
+  }
+}
+
+// 3. System FFmpeg
+if (!ffmpegBin) {
+  for (const fb of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', '/opt/bin/ffmpeg']) {
     if (fs.existsSync(fb)) {
       ffmpegBin = fb;
       console.log('[render-clip] Using system ffmpeg at:', fb);
