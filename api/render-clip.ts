@@ -9,10 +9,17 @@ export const config = { maxDuration: 300 };
 
 // ─── FFmpeg: download once, cache in /tmp ────────────────────────────────────
 const FFMPEG_PATH = '/tmp/ffmpeg';
-const FFMPEG_URL = 'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.0/linux-x64';
+const FFMPEG_URL = 'https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64';
 
 function ensureFFmpeg(): string {
-  if (fs.existsSync(FFMPEG_PATH)) return FFMPEG_PATH;
+  if (fs.existsSync(FFMPEG_PATH)) {
+    const stats = fs.statSync(FFMPEG_PATH);
+    if (stats.size > 10_000_000) {
+      return FFMPEG_PATH;
+    }
+    console.log('[render-clip] Existing FFmpeg is too small (corrupted), deleting...');
+    fs.unlinkSync(FFMPEG_PATH);
+  }
 
   console.log('[render-clip] Downloading FFmpeg binary...');
   const t = Date.now();
@@ -22,6 +29,13 @@ function ensureFFmpeg(): string {
   console.log(`[render-clip] FFmpeg ready in ${((Date.now() - t) / 1000).toFixed(1)}s`);
 
   if (!fs.existsSync(FFMPEG_PATH)) throw new Error('FFmpeg download failed');
+  
+  const finalStats = fs.statSync(FFMPEG_PATH);
+  if (finalStats.size < 10_000_000) {
+    fs.unlinkSync(FFMPEG_PATH);
+    throw new Error('Downloaded FFmpeg is too small, possibly an HTML error page');
+  }
+
   return FFMPEG_PATH;
 }
 
