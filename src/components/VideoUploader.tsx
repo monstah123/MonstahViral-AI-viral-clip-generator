@@ -223,7 +223,17 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
 
             {/* VPN Advisory */}
             <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed mt-[-0.5rem] md:mt-[-1rem]">
-              <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a VPN (US/UK) to use this tool.
+              <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a{' '}
+              <a 
+                href="https://account.proton.me/refer-a-friend?referrer=XPPWFV2N" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-blue-500 font-bold hover:text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-400 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                VPN
+              </a>{' '}
+              (US/UK) to use this tool.
             </p>
 
             {/* Large file advisory */}
