@@ -148,11 +148,11 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
            <div className="absolute bottom-0 -right-1/4 w-1/2 h-full bg-orange-500/10 blur-[100px] animate-pulse delay-700"></div>
         </div>
 
-        <div className="p-16 md:p-24 relative z-10">
-          <div className="flex flex-col items-center gap-8">
+        <div className="p-8 md:p-12 relative z-10">
+          <div className="flex flex-col items-center gap-5 md:gap-6">
             
             {/* AI Focus Mode Selector */}
-            <div className="relative group/select z-50 w-full max-w-xs mb-4" onClick={(e) => e.stopPropagation()}>
+            <div className="relative group/select z-50 w-full max-w-xs mb-2 md:mb-4" onClick={(e) => e.stopPropagation()}>
               <label className="block text-xs font-black text-purple-400 mb-2 uppercase tracking-widest text-center">
                 AI Focus Mode
               </label>
@@ -175,28 +175,28 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
             {/* Main Icon Area */}
             <div className="relative">
               <div className={`
-                w-24 h-24 rounded-2xl flex items-center justify-center transition-all duration-500
+                w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center transition-all duration-500
                 ${isDragging ? 'bg-blue-500 scale-110 rotate-12' : 'bg-zinc-800 group-hover:bg-zinc-700'}
               `}>
                 {isDragging ? (
-                  <Upload className="w-12 h-12 text-white animate-bounce" />
+                  <Upload className="w-10 h-10 md:w-12 md:h-12 text-white animate-bounce" />
                 ) : (
-                  <FileVideo className="w-12 h-12 text-blue-400 group-hover:text-blue-300" />
+                  <FileVideo className="w-10 h-10 md:w-12 md:h-12 text-blue-400 group-hover:text-blue-300" />
                 )}
               </div>
               
               {/* Floating Plus */}
-              <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
-                <Plus className="w-6 h-6 text-white" />
+              <div className="absolute -bottom-2 -right-2 w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform">
+                <Plus className="w-5 h-5 md:w-6 md:h-6 text-white" />
               </div>
             </div>
 
             {/* Text & Headlines */}
-            <div className="text-center space-y-3">
-              <h3 className="text-4xl font-black tracking-tight text-white">
+            <div className="text-center space-y-2 md:space-y-3">
+              <h3 className="text-3xl md:text-4xl font-black tracking-tight text-white">
                 {isDragging ? 'DROP IT HERE!' : 'DRAG YOUR VIDEO'}
               </h3>
-              <p className="text-gray-400 text-lg max-w-sm mx-auto">
+              <p className="text-gray-400 text-base md:text-lg max-w-sm mx-auto">
                 Drop your video and let the <span className="text-orange-500 font-bold italic">Monstah</span> find your next viral hit
               </p>
             </div>
@@ -207,7 +207,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
                 e.stopPropagation();
                 handleBrowseClick();
               }}
-              className="relative px-10 py-4 font-bold text-white group/btn overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+              className="relative px-8 py-3 md:px-10 md:py-4 font-bold text-white group/btn overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-600 to-blue-500 rounded-full"></div>
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
@@ -217,12 +217,12 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
             </button>
 
             {/* Formats info */}
-            <p className="text-zinc-600 text-sm font-mono tracking-widest flex items-center gap-2 uppercase">
+            <p className="text-zinc-600 text-xs md:text-sm font-mono tracking-widest flex flex-wrap justify-center gap-2 uppercase">
               MP4 • MOV • AVI • MKV • UP TO 2 GB
             </p>
 
             {/* VPN Advisory */}
-            <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed mt-[-1rem]">
+            <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed mt-[-0.5rem] md:mt-[-1rem]">
               <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a VPN (US/UK) to use this tool.
             </p>
 
