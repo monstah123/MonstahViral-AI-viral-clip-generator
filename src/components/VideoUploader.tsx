@@ -221,6 +221,11 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
               MP4 • MOV • AVI • MKV • UP TO 2 GB
             </p>
 
+            {/* VPN Advisory */}
+            <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed mt-[-1rem]">
+              <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a VPN (US/UK) to use this tool.
+            </p>
+
             {/* Large file advisory */}
             {largFileWarning && (
               <div className="flex items-start gap-2 max-w-sm px-4 py-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-left">
