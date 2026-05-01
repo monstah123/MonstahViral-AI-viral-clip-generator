@@ -751,6 +751,10 @@ Export Time: ${new Date().toLocaleString()}
                       </div>
                     </div>
                     <div className="pt-4 border-t border-zinc-800 space-y-3">
+                      <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-1.5 ml-1 animate-pulse">
+                        <Sparkles className="w-3 h-3" />
+                        Format: Monstah Blur
+                      </div>
                       <button onClick={handleCreateClip} disabled={isClipping} className={`w-full px-4 py-3 rounded-lg font-bold ${isClipping ? 'bg-purple-800' : 'bg-purple-500 hover:bg-purple-400'} text-white`}>
                         {isClipping ? '🔄 Creating Clip...' : '🎬 Create 15s Clip'}
                       </button>
