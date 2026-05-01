@@ -10,7 +10,7 @@ import { uploadToS3, listItemsFromS3, deleteFromS3 } from './lib/aws';
 import { createMp4Clip, downloadClip, listClips, testOriginalVideo } from './utils/videoStorage';
 import { Sparkles, History, Trash2, ExternalLink, ArrowLeft, Edit3, Check, X, Camera, LogOut } from 'lucide-react';
 import { captureThumbnail } from './utils/thumbnailUtils';
-import { playDuolingoHoverSound } from './utils/soundUtils';
+import { playDuolingoHoverSound, playPremiumSuccessSound } from './utils/soundUtils';
 import { useAuth } from './contexts/AuthContext';
 import { db } from './lib/firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
@@ -325,7 +325,8 @@ Export Time: ${new Date().toLocaleString()}
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-
+      
+      playPremiumSuccessSound();
       alert(`✅ Clip Downloaded!\n\nTimestamp: ${shot.timestamp}\nDuration: ${durSec}s\nFormat: Monstah Blur (1080×1920)`);
 
       const newClip: VideoClip = {
