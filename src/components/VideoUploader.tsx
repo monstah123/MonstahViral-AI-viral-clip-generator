@@ -222,19 +222,21 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
             </p>
 
             {/* VPN Advisory */}
-            <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed mt-4">
-              <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a{' '}
+            <div className="flex flex-col items-center gap-3 mt-2">
+              <p className="text-xs text-zinc-500 max-w-sm text-center px-4 leading-relaxed">
+                <span className="text-purple-400 font-bold">Notice:</span> If you are in a country where Google Gemini is restricted, please enable a VPN (US/UK) to use this tool.
+              </p>
               <a 
                 href="https://account.proton.me/refer-a-friend?referrer=XPPWFV2N" 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="text-blue-500 font-bold hover:text-blue-400 underline underline-offset-4 decoration-2 decoration-blue-500/30 hover:decoration-blue-400 transition-all"
+                className="group/vpn flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white rounded-full font-black text-sm shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all hover:scale-105 active:scale-95"
                 onClick={(e) => e.stopPropagation()}
               >
                 VPN
-              </a>{' '}
-              (US/UK) to use this tool.
-            </p>
+                <span className="group-hover/vpn:animate-bounce transition-transform">🚀</span>
+              </a>
+            </div>
 
             {/* Large file advisory */}
             {largFileWarning && (
