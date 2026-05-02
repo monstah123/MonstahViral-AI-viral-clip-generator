@@ -59,7 +59,7 @@ const steps = [
   { number: '01', label: 'Upload', desc: 'Drop your raw video footage' },
   { number: '02', label: 'Analyze', desc: 'AI scans every second for viral potential' },
   { number: '03', label: 'Clip', desc: 'One-click export your best shots as MP4' },
-  { number: '04', label: 'Post', desc: 'From drop to TikTok in under 5 minutes' },
+  { number: '04', label: 'Post', desc: 'From drop to TikTok in record time' },
 ];
 
 const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
