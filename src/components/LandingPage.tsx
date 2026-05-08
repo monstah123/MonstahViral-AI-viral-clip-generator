@@ -62,6 +62,34 @@ const steps = [
   { number: '04', label: 'Post', desc: 'From raw drop to every feed in record time' },
 ];
 
+// Synthesize a subtle, premium "glass tap" hover sound for tiles
+const playTileHoverSound = () => {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.type = 'sine';
+    // Quick frequency drop for a "tap" sound
+    osc.frequency.setValueAtTime(1200, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.05);
+
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.1);
+
+    osc.onended = () => ctx.close();
+  } catch (_) {
+    // Silently fail if audio is blocked
+  }
+};
+
 const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [visible, setVisible] = useState(false);
@@ -214,7 +242,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
           <div className="hidden md:block absolute top-[2.75rem] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-purple-500 via-blue-500 to-orange-500 opacity-40"></div>
 
           {steps.map((step, i) => (
-            <div key={i} className="flex flex-col items-center text-center p-6 group relative z-10">
+            <div key={i} onMouseEnter={playTileHoverSound} className="flex flex-col items-center text-center p-6 group relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700 group-hover:border-blue-500/50 flex items-center justify-center mb-4 font-black text-2xl text-gray-500 group-hover:text-white transition-all duration-300 shadow-xl group-hover:shadow-blue-500/20 group-hover:scale-110">
                 {step.number}
               </div>
@@ -238,6 +266,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
             {features.map((feat, i) => (
               <div
                 key={i}
+                onMouseEnter={playTileHoverSound}
                 className={`group relative p-8 rounded-3xl border ${feat.border} bg-gradient-to-br ${feat.color} backdrop-blur-sm hover:shadow-2xl ${feat.glow} transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] cursor-default`}
               >
                 <div className="text-5xl mb-5">{feat.icon}</div>
