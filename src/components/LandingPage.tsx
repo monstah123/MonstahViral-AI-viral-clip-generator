@@ -283,15 +283,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-green-950/10 via-transparent to-transparent pointer-events-none"></div>
         <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
           
-          {/* Cyberpunk GIF Animation */}
+          {/* Cyberpunk GIF Animation - Optimized for Performance */}
           <div className="mb-12 relative group w-full max-w-2xl">
-            {/* Glowing backdrop */}
-            <div className="absolute inset-0 bg-green-500 blur-[80px] opacity-20 group-hover:opacity-40 transition-opacity duration-700 pointer-events-none"></div>
-            {/* The GIF */}
             <img 
               src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3NqZTM1bjlzOXFhbmZlMXZ2Mm5maGE1ZmN4M2oyZ25la3BsampyOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/sOzHwf1DF8h96A5tXU/giphy.gif" 
               alt="Monstah eating data" 
-              className="w-full h-auto rounded-3xl border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.15)] relative z-10 mix-blend-screen object-cover"
+              className="w-full h-auto rounded-3xl border border-green-500/20 shadow-[0_0_60px_rgba(34,197,94,0.2)] group-hover:shadow-[0_0_100px_rgba(34,197,94,0.35)] transition-shadow duration-700 relative z-10 mix-blend-screen object-cover transform-gpu"
+              style={{ willChange: 'transform' }}
             />
           </div>
 
