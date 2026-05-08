@@ -63,28 +63,39 @@ const steps = [
 ];
 
 // Synthesize a subtle, premium "glass tap" hover sound for tiles
+let tileAudioCtx: AudioContext | null = null;
+let lastPlayTime = 0;
+
 const playTileHoverSound = () => {
+  const now = Date.now();
+  if (now - lastPlayTime < 100) return; // Prevent double-play from touch+mouseenter
+  lastPlayTime = now;
+
   try {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (!tileAudioCtx) {
+      tileAudioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (tileAudioCtx.state === 'suspended') {
+      tileAudioCtx.resume();
+    }
+
+    const osc = tileAudioCtx.createOscillator();
+    const gain = tileAudioCtx.createGain();
 
     osc.connect(gain);
-    gain.connect(ctx.destination);
+    gain.connect(tileAudioCtx.destination);
 
     osc.type = 'sine';
     // Quick frequency drop for a "tap" sound
-    osc.frequency.setValueAtTime(1200, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.05);
+    osc.frequency.setValueAtTime(1200, tileAudioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(600, tileAudioCtx.currentTime + 0.05);
 
-    gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0, tileAudioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.04, tileAudioCtx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, tileAudioCtx.currentTime + 0.1);
 
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 0.1);
-
-    osc.onended = () => ctx.close();
+    osc.start(tileAudioCtx.currentTime);
+    osc.stop(tileAudioCtx.currentTime + 0.1);
   } catch (_) {
     // Silently fail if audio is blocked
   }
@@ -242,7 +253,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
           <div className="hidden md:block absolute top-[2.75rem] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-purple-500 via-blue-500 to-orange-500 opacity-40"></div>
 
           {steps.map((step, i) => (
-            <div key={i} onMouseEnter={playTileHoverSound} className="flex flex-col items-center text-center p-6 group relative z-10">
+            <div key={i} onMouseEnter={playTileHoverSound} onTouchStart={playTileHoverSound} className="flex flex-col items-center text-center p-6 group relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-zinc-900 border border-zinc-700 group-hover:border-blue-500/50 flex items-center justify-center mb-4 font-black text-2xl text-gray-500 group-hover:text-white transition-all duration-300 shadow-xl group-hover:shadow-blue-500/20 group-hover:scale-110">
                 {step.number}
               </div>
@@ -267,6 +278,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
               <div
                 key={i}
                 onMouseEnter={playTileHoverSound}
+                onTouchStart={playTileHoverSound}
                 className={`group relative p-8 rounded-3xl border ${feat.border} bg-gradient-to-br ${feat.color} backdrop-blur-sm hover:shadow-2xl ${feat.glow} transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] cursor-default`}
               >
                 <div className="text-5xl mb-5">{feat.icon}</div>
