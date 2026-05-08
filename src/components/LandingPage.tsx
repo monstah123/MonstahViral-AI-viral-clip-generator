@@ -280,16 +280,33 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
 
       {/* ─── FINAL CTA ─── */}
       <section className="py-24 sm:py-40 px-4 text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-purple-950/20 via-transparent to-transparent pointer-events-none"></div>
-        <div className="relative z-10 max-w-3xl mx-auto">
-          <p className="text-5xl sm:text-6xl mb-6">👹</p>
+        <div className="absolute inset-0 bg-gradient-to-t from-green-950/10 via-transparent to-transparent pointer-events-none"></div>
+        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
+          
+          {/* Cyberpunk GIF Animation */}
+          <div className="mb-12 relative group w-full max-w-2xl">
+            {/* Glowing backdrop */}
+            <div className="absolute inset-0 bg-green-500 blur-[80px] opacity-20 group-hover:opacity-40 transition-opacity duration-700 pointer-events-none"></div>
+            {/* The GIF */}
+            <img 
+              src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExM3NqZTM1bjlzOXFhbmZlMXZ2Mm5maGE1ZmN4M2oyZ25la3BsampyOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/sOzHwf1DF8h96A5tXU/giphy.gif" 
+              alt="Monstah eating data" 
+              className="w-full h-auto rounded-3xl border border-green-500/20 shadow-[0_0_50px_rgba(34,197,94,0.15)] relative z-10 mix-blend-screen object-cover"
+            />
+          </div>
+
           <h2 className="text-4xl sm:text-6xl md:text-7xl font-black mb-6 leading-tight">
             The Monstah is <span className="bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Hungry.</span>
           </h2>
-          <p className="text-lg sm:text-xl text-gray-400 mb-10 sm:mb-12">Drop your video. Let it feed. Watch your clips go viral.</p>
+          
+          <div className="mb-10 sm:mb-12 font-mono bg-zinc-950/50 p-6 sm:p-8 rounded-2xl border border-green-500/20 backdrop-blur-md inline-block text-left shadow-2xl">
+             <p className="text-green-400 text-sm md:text-base mb-2 animate-pulse">&gt; SYSTEM.AWAITING_RAW_FOOTAGE...</p>
+             <p className="text-gray-300 text-lg sm:text-xl">&gt; Drop your video.<br/>&gt; Let it feed.<br/>&gt; Watch your clips go viral.</p>
+          </div>
+
           <button
             onClick={onStart}
-            className="group relative w-full sm:w-auto px-10 sm:px-14 py-5 sm:py-6 text-xl sm:text-2xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl hover:shadow-orange-500/30"
+            className="group relative w-full sm:w-auto px-10 sm:px-14 py-5 sm:py-6 text-xl sm:text-2xl font-black rounded-2xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(249,115,22,0.3)] hover:shadow-[0_0_60px_rgba(249,115,22,0.5)]"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
             <div className="absolute inset-0 bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 opacity-0 group-hover:opacity-100 transition-opacity"></div>
