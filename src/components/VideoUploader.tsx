@@ -207,10 +207,10 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ onUpload, isLoading }) =>
                 e.stopPropagation();
                 handleBrowseClick();
               }}
-              className="relative px-8 py-3 md:px-10 md:py-4 font-bold text-white group/btn overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+              className="relative px-8 py-3 md:px-10 md:py-4 font-bold text-white rounded-full group/btn overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-purple-600 via-blue-600 to-blue-500 rounded-full"></div>
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
+              <div className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover/btn:opacity-100 transition-opacity"></div>
               <span className="relative z-10 flex items-center gap-2">
                 BROWSE FILES
               </span>
